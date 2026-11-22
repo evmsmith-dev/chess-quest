@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Chess Quest</title>
+  <meta name="description" content="Learn chess step by step, solve daily puzzles and play the computer. Works offline.">
+  <meta name="theme-color" content="#1f5c45">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Chess Quest">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/png" href="icons/icon-192.png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <script>
+    // Theme before the page draws, so dark mode doesn't flash white.
+    (function () {
+      var pref = "auto";
+      try { pref = JSON.parse(localStorage.getItem("chessQuest_theme")) || "auto"; } catch (e) {}
+      var dark = pref === "dark" || (pref === "auto" && window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches);
+      document.documentElement.setAttribute("data-theme", dark ? "dark" : "light");
+    })();
+  </script>
+  <script type="importmap">{ "imports": { "chess.js": "./node_modules/chess.js/dist/esm/chess.js" } }</script>
+  <link rel="stylesheet" href="vendor/fonts/fredoka.css">
+  <link rel="stylesheet" href="src/styles.css">
+  <script src="vendor/confetti.browser.js" defer></script>
+  <script type="module" src="src/main.js"></script>
+</head>
+<body>
+  <!-- ==================== Home ==================== -->
+  <main id="home" class="screen">
+    <header class="home-header">
+      <h1><span class="logo" aria-hidden="true">♞</span> Chess Quest</h1>
+      <button type="button" id="settings-btn" class="icon-button" aria-label="Settings">⚙️</button>
+    </header>
+
+    <button type="button" id="continue-btn" class="continue-card" hidden></button>
+
+    <section class="daily-card" aria-labelledby="daily-title">
+      <div class="daily-head">
+        <h2 id="daily-title">Daily puzzle</h2>
+        <span id="daily-date" class="daily-date"></span>
+      </div>
+      <p id="daily-status" class="daily-status"></p>
+      <div class="daily-foot">
+        <span id="daily-streak" class="daily-streak"></span>
+        <button type="button" id="daily-btn" class="play-btn">Solve</button>
+      </div>
+    </section>
+
+    <section id="install-card" class="install-card" aria-labelledby="install-title" hidden>
+      <span class="install-emoji" aria-hidden="true">📲</span>
+      <div class="install-text">
+        <h2 id="install-title">Install Chess Quest</h2>
+        <p>Play from your home screen, even offline.</p>
+      </div>
+      <div class="install-actions">
+        <button type="button" id="install-btn" class="primary">Install</button>
+        <button type="button" id="install-later" class="link-button">Not now</button>
+      </div>
+    </section>
+
+    <div class="mode-list">
+      <section class="mode-card">
+        <div class="mode-head"><span class="mode-emoji" aria-hidden="true">🎓</span><div><h2>Learn</h2><p class="mode-tagline">Short lessons, from the first moves to checkmate.</p></div></div>
+        <div class="progress-bar" aria-hidden="true"><span id="learn-bar"></span></div>
+        <div class="mode-foot"><span id="learn-summary" class="mode-stat"></span><button type="button" id="learn-btn" class="play-btn">Start</button></div>
+      </section>
+      <section class="mode-card">
+        <div class="mode-head"><span class="mode-emoji" aria-hidden="true">🎯</span><div><h2>Challenges</h2><p class="mode-tagline">Puzzles with one best move. Can you find it?</p></div></div>
+        <div class="progress-bar" aria-hidden="true"><span id="challenge-bar"></span></div>
+        <div class="mode-foot"><span id="challenge-summary" class="mode-stat"></span><button type="button" id="challenges-btn" class="play-btn">Open</button></div>
+      </section>
+      <section class="mode-card">
+        <div class="mode-head"><span class="mode-emoji" aria-hidden="true">🤖</span><div><h2>Play the computer</h2><p class="mode-tagline">A full game against a Beginner or Intermediate bot.</p></div></div>
+        <div class="mode-foot"><span id="play-summary" class="mode-stat"></span><button type="button" id="new-game-btn" class="play-btn">Play</button></div>
+      </section>
+      <section class="mode-card">
+        <div class="mode-head"><span class="mode-emoji" aria-hidden="true">📖</span><div><h2>Rulebook</h2><p class="mode-tagline">Every rule of chess, with examples on a board.</p></div></div>
+        <div class="mode-foot"><span class="mode-stat"></span><button type="button" id="rules-btn" class="play-btn secondary-play">Read</button></div>
+      </section>
+    </div>
+  </main>
+
+  <!-- ==================== Learn ==================== -->
+  <main id="learn" class="screen" hidden>
+    <header class="page-header">
+      <button type="button" class="icon-button" data-back aria-label="Back">←</button>
+      <h2>Learn</h2>
+      <span class="header-spacer"></span>
+    </header>
+    <div id="unit-list" class="unit-list"></div>
+  </main>
+
+  <!-- ==================== Challenges ==================== -->
+  <main id="challenges" class="screen" hidden>
+    <header class="page-header">
+      <button type="button" class="icon-button" data-back aria-label="Back">←</button>
+      <h2>Challenges</h2>
+      <span class="header-spacer"></span>
+    </header>
+    <div id="set-list" class="set-list"></div>
+  </main>
+
+  <!-- ==================== Rulebook ==================== -->
+  <main id="rules" class="screen" hidden>
+    <header class="page-header">
+      <button type="button" class="icon-button" data-back aria-label="Back">←</button>
+      <h2>Rulebook</h2>
+      <span class="header-spacer"></span>
+    </header>
+    <label class="search-box"><span class="visually-hidden">Search the rules</span><input type="search" id="rules-search" placeholder="Search the rules (e.g. castling)" autocomplete="off"></label>
+    <nav id="rules-index" class="rules-index" aria-label="Rules"></nav>
+    <div id="rules-list" class="rules-list"></div>
+    <p id="rules-empty" class="rules-empty" hidden>No rule matches that. Try another word.</p>
+  </main>
+
+  <!-- ==================== Board (games, lessons, puzzles) ==================== -->
+  <main id="play" class="screen board-screen" hidden>
+    <header class="play-header">
+      <button type="button" class="icon-button" data-back aria-label="Back">←</button>
+      <div class="play-title">
+        <h2 id="play-title"></h2>
+        <span id="play-sub" class="play-sub"></span>
+      </div>
+      <button type="button" id="play-rules-btn" class="icon-button" aria-label="Rulebook">?</button>
+    </header>
+
+    <div class="board-col">
+      <div id="bar-top" class="player-bar"></div>
+      <div class="board-wrap"><div id="board" class="board"></div></div>
+      <div id="bar-bottom" class="player-bar"></div>
+    </div>
+
+    <div class="side-col">
+      <div id="task-dots" class="task-dots" hidden></div>
+      <div id="message" class="message" role="status" aria-live="polite"></div>
+      <div id="coach" class="coach" role="alert" hidden>
+        <p id="coach-text"></p>
+        <div class="coach-actions">
+          <button type="button" id="coach-undo" class="primary">Take it back</button>
+          <button type="button" id="coach-keep" class="secondary">Keep my move</button>
+        </div>
+      </div>
+      <ol id="move-list" class="move-list" aria-label="Moves"></ol>
+      <div id="controls" class="game-controls"></div>
+    </div>
+  </main>
+
+  <!-- ==================== Pop-ups ==================== -->
+  <!-- Every pop-up closes with its ✕, a tap outside it, Escape, or the phone's Back gesture. -->
+  <div id="settings-overlay" class="overlay" role="dialog" aria-modal="true" aria-labelledby="settings-heading" hidden>
+    <div class="overlay-backdrop" data-close></div>
+    <div class="overlay-card">
+      <button type="button" class="overlay-close" data-close aria-label="Close">✕</button>
+      <h2 id="settings-heading">Settings</h2>
+      <p class="setting-label">Theme</p>
+      <div id="theme-options" class="segmented" role="group" aria-label="Theme">
+        <button type="button" data-theme-choice="auto">Auto</button>
+        <button type="button" data-theme-choice="light">Light</button>
+        <button type="button" data-theme-choice="dark">Dark</button>
+      </div>
+      <p class="setting-label">Board</p>
+      <div id="board-options" class="segmented" role="group" aria-label="Board colors">
+        <button type="button" data-board-choice="green">Green</button>
+        <button type="button" data-board-choice="blue">Blue</button>
+        <button type="button" data-board-choice="wood">Wood</button>
+      </div>
+      <p class="setting-label">Options</p>
+      <div class="toggles">
+        <label class="toggle"><span>Sound effects</span><input type="checkbox" data-setting="sound"></label>
+        <label class="toggle" id="vibration-toggle"><span>Vibration</span><input type="checkbox" data-setting="vibration"></label>
+        <label class="toggle"><span>Show legal moves<small>Dots on the squares a piece can go to</small></span><input type="checkbox" data-setting="legalDots"></label>
+        <label class="toggle"><span>Board coordinates<small>Letters and numbers on the edge</small></span><input type="checkbox" data-setting="coordinates"></label>
+        <label class="toggle"><span>Always promote to a queen</span><input type="checkbox" data-setting="autoQueen"></label>
+        <label class="toggle"><span>Larger text</span><input type="checkbox" data-setting="largeText"></label>
+      </div>
+      <div id="install-setting" hidden>
+        <p class="setting-label">App</p>
+        <button type="button" id="install-setting-btn" class="install-setting-btn">📲 Install Chess Quest</button>
+      </div>
+      <p class="settings-note">Your progress is saved on this device. Chess pieces by Colin M.L. Burnett (CC BY-SA 3.0).</p>
+    </div>
+  </div>
+
+  <div id="newgame-overlay" class="overlay" role="dialog" aria-modal="true" aria-labelledby="newgame-heading" hidden>
+    <div class="overlay-backdrop" data-close></div>
+    <div class="overlay-card">
+      <button type="button" class="overlay-close" data-close aria-label="Close">✕</button>
+      <h2 id="newgame-heading">Play the computer</h2>
+      <p class="setting-label">Level</p>
+      <div id="level-options" class="segmented" role="group" aria-label="Level">
+        <button type="button" data-level="beginner">Beginner<small>New to chess</small></button>
+        <button type="button" data-level="intermediate">Intermediate<small>Knows the basics</small></button>
+      </div>
+      <p class="setting-label">You play</p>
+      <div id="color-options" class="segmented" role="group" aria-label="Your color">
+        <button type="button" data-color="w">White<small>Moves first</small></button>
+        <button type="button" data-color="random">Random</button>
+        <button type="button" data-color="b">Black</button>
+      </div>
+      <p class="setting-label">Help</p>
+      <div class="toggles">
+        <label class="toggle"><span>Coach<small>Warns you before you leave a piece unprotected</small></span><input type="checkbox" id="opt-coach"></label>
+        <label class="toggle"><span>Take-backs<small>Undo a move you regret</small></span><input type="checkbox" id="opt-undo"></label>
+        <label class="toggle"><span>Hints<small>Ask the computer for a good move</small></span><input type="checkbox" id="opt-hints"></label>
+      </div>
+      <div class="result-actions"><button type="button" id="start-game-btn" class="primary">Start game</button></div>
+    </div>
+  </div>
+
+  <div id="result-overlay" class="overlay" role="dialog" aria-modal="true" aria-labelledby="result-title" hidden>
+    <div class="overlay-backdrop" data-close></div>
+    <div class="overlay-card result-card">
+      <button type="button" class="overlay-close" data-close aria-label="Close">✕</button>
+      <div id="result-emoji" class="result-emoji" aria-hidden="true"></div>
+      <h2 id="result-title"></h2>
+      <p id="result-text" class="result-text"></p>
+      <div id="result-stats" class="result-stats"></div>
+      <div class="result-actions">
+        <button type="button" id="result-secondary" class="secondary"></button>
+        <button type="button" id="result-primary" class="primary"></button>
+      </div>
+    </div>
+  </div>
+
+  <div id="promotion-overlay" class="overlay" role="dialog" aria-modal="true" aria-labelledby="promotion-heading" hidden>
+    <div class="overlay-backdrop" data-close></div>
+    <div class="overlay-card">
+      <button type="button" class="overlay-close" data-close aria-label="Cancel">✕</button>
+      <h2 id="promotion-heading">Promote your pawn</h2>
+      <p class="overlay-note">Your pawn reached the last row. Choose what it becomes.</p>
+      <div id="promotion-options" class="promotion-options"></div>
+    </div>
+  </div>
+
+  <div id="tip-overlay" class="overlay" role="dialog" aria-modal="true" aria-labelledby="tip-title" hidden>
+    <div class="overlay-backdrop" data-close></div>
+    <div class="overlay-card tip-card">
+      <button type="button" class="overlay-close" data-close aria-label="Close">✕</button>
+      <p class="tip-kicker">Tip card</p>
+      <h2 id="tip-title"></h2>
+      <div id="tip-body" class="tip-body"></div>
+      <div class="result-actions"><button type="button" class="primary" data-close>Let's go</button></div>
+    </div>
+  </div>
+
+  <div id="menu-overlay" class="overlay" role="dialog" aria-modal="true" aria-labelledby="menu-heading" hidden>
+    <div class="overlay-backdrop" data-close></div>
+    <div class="overlay-card">
+      <button type="button" class="overlay-close" data-close aria-label="Close">✕</button>
+      <h2 id="menu-heading">Game</h2>
+      <div class="menu-list">
+        <button type="button" id="menu-draw" class="menu-item">🤝 Offer a draw</button>
+        <button type="button" id="menu-resign" class="menu-item">🏳️ Resign</button>
+        <button type="button" id="menu-new" class="menu-item">✨ New game</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="confirm-overlay" class="overlay" role="dialog" aria-modal="true" aria-labelledby="confirm-title" hidden>
+    <div class="overlay-backdrop" data-close></div>
+    <div class="overlay-card">
+      <button type="button" class="overlay-close" data-close aria-label="Close">✕</button>
+      <h2 id="confirm-title"></h2>
+      <p id="confirm-text"></p>
+      <div class="result-actions">
+        <button type="button" class="secondary" data-close>Cancel</button>
+        <button type="button" id="confirm-ok" class="danger"></button>
+      </div>
+    </div>
+  </div>
+
+  <div id="install-overlay" class="overlay" role="dialog" aria-modal="true" aria-labelledby="install-heading" hidden>
+    <div class="overlay-backdrop" data-close></div>
+    <div class="overlay-card">
+      <button type="button" class="overlay-close" data-close aria-label="Close">✕</button>
+      <h2 id="install-heading">Add to Home Screen</h2>
+      <ol class="install-steps">
+        <li>Tap the Share button <span class="share-icon" aria-hidden="true">⬆</span> in Safari's toolbar.</li>
+        <li>Scroll down and tap <strong>Add to Home Screen</strong>.</li>
+        <li>Tap <strong>Add</strong>. Chess Quest now opens from your home screen and works offline.</li>
+      </ol>
+    </div>
+  </div>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+</body>
+</html>

@@ -1,0 +1,230 @@
+import { test, expect } from "@playwright/test";
+import { openApp, square, tapMove, dragMove, pieceOn } from "./helpers.js";
+
+async function startGame(page, { level = "beginner", color = "w" } = {}) {
+  await page.locator("#new-game-btn").click();
+  await page.locator(`#level-options [data-level="${level}"]`).click();
+  await page.locator(`#color-options [data-color="${color}"]`).click();
+  await page.locator("#start-game-btn").click();
+  await expect(page.locator("#play")).toBeVisible();
+}
+
+test("home shows every mode and the daily puzzle", async ({ page }) => {
+  await openApp(page);
+  await expect(page.locator("#daily-status")).toContainText("Today:");
+  await expect(page.locator("#learn-summary")).toHaveText("0 of 23 lessons");
+  await expect(page.locator("#challenge-summary")).toContainText("solved");
+});
+
+test("a move by tapping, then the bot replies", async ({ page }) => {
+  await openApp(page);
+  await startGame(page);
+  await square(page, "e2").click();
+  await expect(square(page, "e4")).toHaveClass(/is-target/);
+  await square(page, "e4").click();
+  await expect.poll(() => pieceOn(page, "e4")).toBe("wp");
+  // The bot (Black) answers.
+  await page.clock.runFor(3000);
+  await expect(page.locator("#move-list li").first()).toContainText(/e4\s*\S+/, { timeout: 10000 });
+  await expect(page.locator("#message")).toContainText("Your move");
+});
+
+test("a move by dragging", async ({ page }) => {
+  await openApp(page);
+  await startGame(page);
+  await dragMove(page, "g1", "f3");
+  await expect.poll(() => pieceOn(page, "f3")).toBe("wn");
+  await expect(page.locator("#move-list")).toContainText("Nf3");
+});
+
+test("an illegal move is explained and the piece stays", async ({ page }) => {
+  await openApp(page);
+  await startGame(page);
+  await tapMove(page, "e2", "e5");
+  await expect(page.locator("#message")).toContainText("Pawns move straight ahead");
+  await expect.poll(() => pieceOn(page, "e2")).toBe("wp");
+});
+
+test("playing Black: the bot moves first and the board is flipped", async ({ page }) => {
+  await openApp(page);
+  await startGame(page, { color: "b" });
+  await page.clock.runFor(3000);
+  await expect(page.locator("#move-list li").first()).not.toContainText("No moves", { timeout: 10000 });
+  const a8 = await square(page, "a8").boundingBox();
+  const a1 = await square(page, "a1").boundingBox();
+  expect(a8.y).toBeGreaterThan(a1.y);
+});
+
+test("undo takes back your move and the reply", async ({ page }) => {
+  await openApp(page);
+  await startGame(page);
+  await tapMove(page, "d2", "d4");
+  await page.clock.runFor(3000);
+  await expect(page.locator("#message")).toContainText("Your move", { timeout: 10000 });
+  await page.locator("#ctl-undo").click();
+  await expect(page.locator("#move-list")).toContainText("No moves");
+  await expect.poll(() => pieceOn(page, "d2")).toBe("wp");
+});
+
+test("an unfinished game can be continued from Home", async ({ page }) => {
+  await openApp(page, { storage: { current: { level: "intermediate", color: "w", coach: false, undo: false, hints: false, moves: ["e2e4", "e7e5"] } } });
+  await expect(page.locator("#continue-btn")).toBeVisible();
+  await page.locator("#continue-btn").click();
+  await expect(page.locator("#play-title")).toHaveText("Intermediate bot");
+  await expect(page.locator("#move-list")).toContainText("e5");
+  await expect(page.locator("#ctl-undo")).toHaveCount(0);
+});
+
+test("the coach warns before a piece is left hanging", async ({ page }) => {
+  // After 1.e4 d5, Qg4 puts the queen where the c8 bishop can take it.
+  await openApp(page, { storage: { current: { level: "beginner", color: "w", coach: true, undo: true, hints: true, moves: ["e2e4", "d7d5"] } } });
+  await page.locator("#continue-btn").click();
+  await tapMove(page, "d1", "g4");
+  await expect(page.locator("#coach")).toBeVisible();
+  await expect(page.locator("#coach-text")).toContainText("queen on g4");
+  await page.locator("#coach-undo").click();
+  await expect.poll(() => pieceOn(page, "d1")).toBe("wq");
+});
+
+test("promotion: the picker can be dismissed, then used", async ({ page }) => {
+  await openApp(page, { storage: { current: { level: "beginner", color: "w", coach: false, undo: true, hints: true, moves: ["a2a4", "b7b5", "a4b5", "a7a6", "b5a6", "c8b7", "a6b7", "h7h6"] } } });
+  await page.locator("#continue-btn").click();
+  await tapMove(page, "b7", "a8");
+  await expect(page.locator("#promotion-overlay")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.locator("#promotion-overlay")).toBeHidden();
+  await expect.poll(() => pieceOn(page, "b7")).toBe("wp");
+  await tapMove(page, "b7", "a8");
+  await page.locator('[data-promo="n"]').click();
+  await expect.poll(() => pieceOn(page, "a8")).toBe("wn");
+});
+
+test("a star lesson can be completed", async ({ page }) => {
+  await openApp(page);
+  await page.locator("#learn-btn").click();
+  await page.locator('[data-lesson="rook"]').click();
+  await expect(page.locator("#tip-overlay")).toBeVisible();
+  await page.locator("#tip-overlay .primary").click();
+  // Task 1: rook a1 → a8 → h8 → h1.
+  await tapMove(page, "a1", "a8");
+  await tapMove(page, "a8", "h8");
+  await tapMove(page, "h8", "h1");
+  await expect(page.locator("#message")).toContainText("fewest possible");
+  await page.locator("#ctl-next").click();
+  // Task 2: around the pawns.
+  for (const [a, b] of [["d4", "d1"], ["d1", "a1"], ["a1", "a4"], ["a4", "a8"], ["a8", "d8"]]) await tapMove(page, a, b);
+  await expect(page.locator("#message")).toContainText("All stars");
+  await page.locator("#ctl-next").click();
+  await tapMove(page, "a1", "a6");
+  await tapMove(page, "a6", "f6");
+  await page.locator("#ctl-next").click();
+  await expect(page.locator("#result-overlay")).toBeVisible();
+  await expect(page.locator("#result-title")).toHaveText("Lesson complete!");
+  await page.locator("#result-secondary").click();
+  await expect(page.locator("#learn")).toBeVisible();
+  await expect(page.locator('[data-lesson="rook"]')).toHaveClass(/is-done/);
+});
+
+test("a move task: a wrong move is explained, the right one passes", async ({ page }) => {
+  await openApp(page);
+  await page.locator("#learn-btn").click();
+  await page.locator('[data-lesson="free-pieces"]').click();
+  await page.locator("#tip-overlay .overlay-close").click();
+  await tapMove(page, "c3", "d5");
+  await expect(page.locator("#message")).toContainText("protected by the pawn on e6");
+  await page.clock.runFor(1200);
+  await expect.poll(() => pieceOn(page, "c3")).toBe("wn");
+  await tapMove(page, "c3", "a4");
+  await expect(page.locator("#message")).toContainText("free 3 points");
+});
+
+test("a quiz task", async ({ page }) => {
+  await openApp(page);
+  await page.locator("#learn-btn").click();
+  await page.locator('[data-lesson="values"]').click();
+  await page.locator("#tip-overlay .primary").click();
+  await page.getByRole("button", { name: "The knight and pawn (4)" }).click();
+  await expect(page.locator("#message")).toContainText("Not quite");
+  await page.getByRole("button", { name: "The rook (5)" }).click();
+  await expect(page.locator("#message")).toContainText("3 + 1 = 4");
+});
+
+test("a challenge puzzle can be solved", async ({ page }) => {
+  await openApp(page);
+  const puzzles = await page.evaluate(() => fetch("data/puzzles.json").then((r) => r.json()));
+  const first = puzzles.mate1[0];
+  await page.locator("#challenges-btn").click();
+  await page.locator('[data-set="mate1"]').click();
+  const uci = first.line[0];
+  await tapMove(page, uci.slice(0, 2), uci.slice(2, 4));
+  if (uci[4]) await page.locator(`[data-promo="${uci[4]}"]`).click();
+  await expect(page.locator("#message")).toContainText("checkmate");
+  await expect(page.locator("#ctl-next")).toBeVisible();
+});
+
+test("the rulebook can be searched", async ({ page }) => {
+  await openApp(page);
+  await page.locator("#rules-btn").click();
+  await page.locator("#rules-search").fill("passant");
+  await expect(page.locator(".rule-card:visible")).toHaveCount(1);
+  await expect(page.locator(".rule-card:visible h4")).toHaveText("En passant");
+  await page.locator("#rules-search").fill("zzzz");
+  await expect(page.locator("#rules-empty")).toBeVisible();
+});
+
+test("the Back gesture leaves screens in order", async ({ page }) => {
+  await openApp(page);
+  await page.locator("#learn-btn").click();
+  await page.locator('[data-lesson="board"]').click();
+  await expect(page.locator("#tip-overlay")).toBeVisible();
+  await page.goBack();
+  await expect(page.locator("#tip-overlay")).toBeHidden();
+  await expect(page.locator("#play")).toBeVisible();
+  await page.goBack();
+  await expect(page.locator("#learn")).toBeVisible();
+  await page.goBack();
+  await expect(page.locator("#home")).toBeVisible();
+});
+
+test("en passant lesson shows the other side's move first", async ({ page }) => {
+  await openApp(page);
+  await page.locator("#learn-btn").click();
+  await page.locator('[data-lesson="en-passant"]').click();
+  await page.locator("#tip-overlay .primary").click();
+  await page.clock.runFor(1000);
+  await expect.poll(() => pieceOn(page, "d5")).toBe("bp");
+  await tapMove(page, "e5", "d6");
+  await expect(page.locator("#message")).toContainText("En passant!");
+  await expect.poll(() => pieceOn(page, "d5")).toBe(null);
+});
+
+test("a play-out lesson: the bot defends", async ({ page }) => {
+  await openApp(page);
+  await page.locator("#learn-btn").click();
+  await page.locator('[data-lesson="queen-mate"]').click();
+  await page.locator("#tip-overlay .primary").click();
+  await tapMove(page, "a1", "a4");
+  await page.clock.runFor(3000);
+  await expect(page.locator("#message")).toContainText("Moves used: 1 of 20", { timeout: 10000 });
+  await expect(page.locator("#board")).not.toHaveClass(/is-locked/);
+});
+
+test("the daily puzzle counts toward the streak", async ({ page }) => {
+  await openApp(page);
+  await page.locator("#daily-btn").click();
+  await expect(page.locator("#play-title")).toHaveText("Daily puzzle");
+  // Solve it by following the hints: the second hint names the square.
+  for (let step = 0; step < 3; step++) {
+    if (await page.locator("#result-overlay").isVisible()) break;
+    await page.locator("#ctl-hint").click();
+    await page.locator("#ctl-hint").click();
+    const text = await page.locator("#message").textContent();
+    const m = text.match(/from (\w\d) to (\w\d)/);
+    await tapMove(page, m[1], m[2]);
+    if (await page.locator("#promotion-overlay").isVisible()) await page.locator('[data-promo="q"]').click();
+    await page.clock.runFor(1500);
+  }
+  await expect(page.locator("#result-title")).toHaveText("Daily puzzle solved!");
+  await page.locator("#result-primary").click();
+  await expect(page.locator("#daily-streak")).toContainText("1-day streak");
+});

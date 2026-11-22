@@ -1,0 +1,30 @@
+// Player settings, saved on this device. Anything missing falls back to the defaults, so new
+// settings added in an update just work.
+import { readJson, writeJson } from "../storage.js";
+
+export const DEFAULT_SETTINGS = {
+  sound: true,
+  vibration: true,
+  legalDots: true, // dots on the squares the picked-up piece can go to
+  coordinates: true,
+  autoQueen: false, // skip the promotion choice
+  largeText: false,
+  board: "green", // "green", "blue" or "wood"
+};
+
+let current = { ...DEFAULT_SETTINGS, ...readJson("settings", {}) };
+const listeners = new Set();
+
+export const getSettings = () => current;
+export const setting = (name) => current[name];
+
+export function updateSettings(changes) {
+  current = { ...current, ...changes };
+  writeJson("settings", current);
+  for (const listener of listeners) listener(current, changes);
+}
+
+/** Calls `listener(settings, changes)` after every change. */
+export function onSettingsChange(listener) {
+  listeners.add(listener);
+}
