@@ -24,6 +24,7 @@ export function useMode(handlers) {
   const screen = byId("play");
   screen.classList.remove("no-board");
   byId("coach").hidden = true;
+  byId("offer").hidden = true;
   byId("task-dots").hidden = true;
   byId("move-list").hidden = true;
   setBars(null, null);

@@ -371,6 +371,21 @@ html.no-coords .coord { display: none; }
 .toggle + .toggle { border-top: 1px solid color-mix(in srgb, var(--muted) 20%, transparent); }
 .toggle small { display: block; font-weight: 400; font-size: 0.82rem; color: var(--muted); }
 .toggle input[type="checkbox"] { width: 22px; height: 22px; accent-color: var(--primary); flex: none; }
+.avatar-options { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
+.avatar-options button { min-height: 44px; border: 2px solid transparent; border-radius: 12px; background: var(--bg); font-size: 1.5rem; }
+.avatar-options button[aria-pressed="true"] { border-color: var(--primary); background: var(--primary-soft); }
+.wide-button { width: 100%; min-height: 48px; border: 0; border-radius: 999px; font-weight: 700; font-size: 1.05rem; margin-top: 10px; }
+.join-row { display: flex; gap: 8px; }
+.code-input {
+  flex: 1; min-width: 0; min-height: 48px; border-radius: 12px; border: 2px solid var(--border); background: var(--bg);
+  color: var(--text); padding: 8px 12px; font: inherit; font-size: 1.25rem; letter-spacing: 0.2em; text-transform: uppercase; font-weight: 700;
+}
+.join-row button { min-height: 48px; border: 0; border-radius: 999px; padding: 0 22px; font-weight: 700; }
+.form-error { color: var(--danger); font-weight: 600; margin: 8px 0 0; }
+.privacy-details { margin-top: 14px; color: var(--muted); font-size: 0.92rem; }
+.privacy-details summary { cursor: pointer; font-weight: 600; min-height: 32px; }
+.privacy-details p { line-height: 1.45; margin: 6px 0 0; }
+.game-code { display: block; font-size: 2rem; font-weight: 700; letter-spacing: 0.25em; text-align: center; margin: 8px 0 2px; color: var(--primary-dark); user-select: all; -webkit-user-select: all; }
 .name-fields { display: grid; gap: 8px; margin-bottom: 4px; }
 .name-field { display: flex; align-items: center; gap: 10px; font-weight: 600; }
 .name-field span { width: 76px; flex: none; }

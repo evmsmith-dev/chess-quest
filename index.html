@@ -38,6 +38,7 @@
 
     <button type="button" id="continue-btn" class="continue-card" hidden></button>
     <button type="button" id="continue-friend-btn" class="continue-card" hidden></button>
+    <button type="button" id="continue-online-btn" class="continue-card" hidden></button>
 
     <section class="daily-card" aria-labelledby="daily-title">
       <div class="daily-head">
@@ -81,6 +82,10 @@
       <section class="mode-card">
         <div class="mode-head"><span class="mode-emoji" aria-hidden="true">👥</span><div><h2>Play a friend</h2><p class="mode-tagline">Two players take turns on this phone or tablet.</p></div></div>
         <div class="mode-foot"><span class="mode-stat">Pass and play</span><button type="button" id="friend-btn" class="play-btn">Play</button></div>
+      </section>
+      <section class="mode-card">
+        <div class="mode-head"><span class="mode-emoji" aria-hidden="true">🌐</span><div><h2>Play online</h2><p class="mode-tagline">Play someone on another phone or tablet with a game code.</p></div></div>
+        <div class="mode-foot"><span class="mode-stat">No names, no chat</span><button type="button" id="online-btn" class="play-btn">Play</button></div>
       </section>
       <section class="mode-card">
         <div class="mode-head"><span class="mode-emoji" aria-hidden="true">📖</span><div><h2>Rulebook</h2><p class="mode-tagline">Every rule of chess, with examples on a board.</p></div></div>
@@ -149,6 +154,13 @@
           <button type="button" id="coach-keep" class="secondary">Keep my move</button>
         </div>
       </div>
+      <div id="offer" class="coach" role="alert" hidden>
+        <p>🤝 <strong>Your opponent offers a draw.</strong></p>
+        <div class="coach-actions">
+          <button type="button" id="offer-accept" class="primary">Accept draw</button>
+          <button type="button" id="offer-decline" class="secondary">Keep playing</button>
+        </div>
+      </div>
       <ol id="move-list" class="move-list" aria-label="Moves"></ol>
       <div id="controls" class="game-controls"></div>
     </div>
@@ -186,7 +198,7 @@
         <p class="setting-label">App</p>
         <button type="button" id="install-setting-btn" class="install-setting-btn">📲 Install Chess Quest</button>
       </div>
-      <p class="settings-note">Your progress is saved on this device. Chess pieces by Colin M.L. Burnett (CC BY-SA 3.0).</p>
+      <p class="settings-note">Your progress is saved on this device. Online games store only the moves, avatars and a random player number, and are deleted after 7 days. Chess pieces by Colin M.L. Burnett (CC BY-SA 3.0).</p>
     </div>
   </div>
 
@@ -232,6 +244,40 @@
         <label class="toggle"><span>Take-backs<small>Undo the last move</small></span><input type="checkbox" id="opt-friend-undo"></label>
       </div>
       <div class="result-actions"><button type="button" id="start-friend-btn" class="primary">Start game</button></div>
+    </div>
+  </div>
+
+  <div id="online-overlay" class="overlay" role="dialog" aria-modal="true" aria-labelledby="online-heading" hidden>
+    <div class="overlay-backdrop" data-close></div>
+    <div class="overlay-card">
+      <button type="button" class="overlay-close" data-close aria-label="Close">✕</button>
+      <h2 id="online-heading">Play online</h2>
+      <div id="online-unavailable" hidden>
+        <p class="overlay-note">Online play isn't set up yet. The app's owner needs to connect it to Firebase (see the README).</p>
+      </div>
+      <div id="online-setup">
+        <p class="overlay-note">Play someone on another device: one of you creates a game and sends the code. No names, no chat.</p>
+        <p class="setting-label">Your avatar</p>
+        <div id="avatar-options" class="avatar-options" role="group" aria-label="Your avatar"></div>
+        <p class="setting-label">Start a new game</p>
+        <div id="online-color" class="segmented" role="group" aria-label="Your color">
+          <button type="button" data-online-color="w">White</button>
+          <button type="button" data-online-color="random">Random</button>
+          <button type="button" data-online-color="b">Black</button>
+        </div>
+        <button type="button" id="online-create" class="primary wide-button">Create a game</button>
+        <p class="setting-label">Or join with a code</p>
+        <div class="join-row">
+          <label class="visually-hidden" for="online-code">Game code</label>
+          <input type="text" id="online-code" class="code-input" maxlength="7" placeholder="ABC123" autocomplete="off" autocapitalize="characters" spellcheck="false" enterkeyhint="go">
+          <button type="button" id="online-join" class="secondary">Join</button>
+        </div>
+        <p id="online-error" class="form-error" role="alert" hidden></p>
+        <details class="privacy-details">
+          <summary>What's stored?</summary>
+          <p>Only what's needed to play: the moves, each player's avatar, and a random player number made by the app (not linked to any account, email or name). Games are deleted after 7 days. Nothing is used for ads or tracking.</p>
+        </details>
+      </div>
     </div>
   </div>
 

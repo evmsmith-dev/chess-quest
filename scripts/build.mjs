@@ -1,5 +1,6 @@
 // Builds the deployable site into dist/:
-//  - bundles + minifies src/main.js → app.js (with chess.js), the bot → engine-worker.js, and the
+//  - bundles + minifies src/main.js → app.js (with chess.js; online play in chunks/), the bot →
+//    engine-worker.js, and the
 //    stylesheet → app.css (esbuild)
 //  - copies icons, vendor files, puzzles and the manifest
 //  - rewrites index.html to use the bundles
@@ -19,9 +20,12 @@ await rm(DIST, { recursive: true, force: true });
 await mkdir(DIST, { recursive: true });
 
 // 1. JavaScript and CSS bundles. The worker is a classic script so older Safari can run it.
+// Online play's code (Firebase) is split into its own files, loaded only when it's opened.
 await build({
   entryPoints: { app: join(ROOT, "src/main.js") },
   bundle: true,
+  splitting: true,
+  chunkNames: "chunks/[name]-[hash]",
   format: "esm",
   minify: true,
   target: ["es2020", "safari14"],

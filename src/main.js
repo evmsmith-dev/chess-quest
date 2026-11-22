@@ -15,6 +15,9 @@ import { warmUp } from "./chess/bot.js";
 import { miniBoard } from "./screens/boardscreen.js";
 import { newGame, newFriendGame, resumeGame, savedGame, savedFriendGame, setGameHooks, setNewGameOpener } from "./screens/game.js";
 import { startLesson, lessonProgress, nextLesson, setLessonHooks } from "./screens/lesson.js";
+import { openOnlineGame, savedOnlineGame, setOnlineHooks } from "./screens/online.js";
+import { getBackend, onlineConfigured } from "./online/backend.js";
+import { AVATARS, cleanCode } from "./online/common.js";
 import { SETS, loadPuzzles, puzzleList, solvedPuzzles, startSet, startPuzzle, dailyPuzzle, dailyRecord, dailyStreak, setPuzzleHooks } from "./screens/puzzle.js";
 
 const byId = (id) => document.getElementById(id);
@@ -37,6 +40,11 @@ function renderHome() {
     const moves = Math.ceil(friend.moves.length / 2);
     contFriend.innerHTML = `<span class="continue-emoji" aria-hidden="true">👥</span><span class="continue-text"><strong>Continue the two-player game</strong><br>${escapeHtml(friend.names?.w || "White")} vs ${escapeHtml(friend.names?.b || "Black")} · ${moves ? `move ${moves}` : "just started"}</span><span class="continue-go" aria-hidden="true">➜</span>`;
   }
+
+  const online = savedOnlineGame();
+  const contOnline = byId("continue-online-btn");
+  contOnline.hidden = !online;
+  if (online) contOnline.innerHTML = `<span class="continue-emoji" aria-hidden="true">🌐</span><span class="continue-text"><strong>Continue your online game</strong><br>Game code ${escapeHtml(online.code)}</span><span class="continue-go" aria-hidden="true">➜</span>`;
 
   // Daily puzzle.
   const today = dateKey();
@@ -223,6 +231,87 @@ byId("start-friend-btn").addEventListener("click", () => {
   closeTopThen(() => newFriendGame({ ...prefs, names }));
 });
 
+// ---------- Online ----------
+
+let onlineColor = readJson("onlineColor", "random");
+let onlineAvatar = readJson("onlineAvatar", AVATARS[0]);
+byId("avatar-options").innerHTML = AVATARS.map((a) => `<button type="button" data-avatar="${a}" aria-label="Avatar ${a}">${a}</button>`).join("");
+
+function renderOnline() {
+  for (const b of document.querySelectorAll("[data-avatar]")) b.setAttribute("aria-pressed", String(b.dataset.avatar === onlineAvatar));
+  for (const b of document.querySelectorAll("[data-online-color]")) b.setAttribute("aria-pressed", String(b.dataset.onlineColor === onlineColor));
+}
+function onlineError(text) {
+  byId("online-error").textContent = text || "";
+  byId("online-error").hidden = !text;
+}
+function setOnlineBusy(busy) {
+  byId("online-create").disabled = busy;
+  byId("online-join").disabled = busy;
+}
+
+function openOnline(code = "") {
+  const ready = onlineConfigured();
+  byId("online-unavailable").hidden = ready;
+  byId("online-setup").hidden = !ready;
+  byId("online-code").value = code;
+  onlineError("");
+  setOnlineBusy(false);
+  renderOnline();
+  openOverlay("online-overlay", { focus: code ? "#online-join" : "#online-create" });
+  // Tidy up old games while we're here (best effort).
+  if (ready) getBackend().then((b) => b?.sweep()).catch(() => {});
+}
+
+byId("avatar-options").addEventListener("click", (e) => {
+  const avatar = e.target.closest("[data-avatar]")?.dataset.avatar;
+  if (!avatar) return;
+  onlineAvatar = avatar;
+  writeJson("onlineAvatar", avatar);
+  renderOnline();
+});
+byId("online-color").addEventListener("click", (e) => {
+  const color = e.target.closest("[data-online-color]")?.dataset.onlineColor;
+  if (!color) return;
+  onlineColor = color;
+  writeJson("onlineColor", color);
+  renderOnline();
+});
+
+const CONNECT_ERROR = "Couldn't connect. Check your internet connection and try again.";
+
+byId("online-create").addEventListener("click", async () => {
+  onlineError("");
+  setOnlineBusy(true);
+  try {
+    const backend = await getBackend();
+    const color = onlineColor === "random" ? (Math.random() < 0.5 ? "w" : "b") : onlineColor;
+    const code = await backend.create({ color, avatar: onlineAvatar });
+    closeTopThen(() => openOnlineGame(code, color));
+  } catch {
+    onlineError(CONNECT_ERROR);
+    setOnlineBusy(false);
+  }
+});
+
+async function joinOnline() {
+  const code = cleanCode(byId("online-code").value);
+  if (!code) { onlineError("A game code has 6 letters and numbers, like K7QF2M."); return; }
+  onlineError("");
+  setOnlineBusy(true);
+  try {
+    const backend = await getBackend();
+    const { color } = await backend.join(code, onlineAvatar);
+    closeTopThen(() => openOnlineGame(code, color));
+  } catch (error) {
+    onlineError(error?.message === "not-found" ? "There's no game with that code. Check it, or ask for a new one."
+      : error?.message === "full" ? "That game already has two players." : CONNECT_ERROR);
+    setOnlineBusy(false);
+  }
+}
+byId("online-join").addEventListener("click", joinOnline);
+byId("online-code").addEventListener("keydown", (e) => { if (e.key === "Enter") joinOnline(); });
+
 // ---------- Settings ----------
 
 function applySettings() {
@@ -266,6 +355,12 @@ byId("settings-btn").addEventListener("click", () => openOverlay("settings-overl
 byId("continue-btn").addEventListener("click", () => resumeGame("bot"));
 byId("continue-friend-btn").addEventListener("click", () => resumeGame("friend"));
 byId("friend-btn").addEventListener("click", () => openFriendGame());
+byId("online-btn").addEventListener("click", () => openOnline());
+byId("continue-online-btn").addEventListener("click", async () => {
+  const saved = savedOnlineGame();
+  if (!saved) return;
+  try { await openOnlineGame(saved.code, saved.color); } catch { byId("toast").textContent = CONNECT_ERROR; }
+});
 byId("new-game-btn").addEventListener("click", () => openNewGame("bot"));
 byId("learn-btn").addEventListener("click", () => openScreen("learn"));
 byId("challenges-btn").addEventListener("click", () => openScreen("challenges"));
@@ -285,6 +380,7 @@ setGameHooks({ onChange: () => {}, onFinish: () => {} });
 setNewGameOpener(openNewGame);
 setLessonHooks({ onChange: () => {} });
 setPuzzleHooks({ onChange: () => {} });
+setOnlineHooks({ onChange: () => {} });
 
 // Browsers need a tap before sound can play.
 addEventListener("pointerdown", unlockAudio, { capture: true });
@@ -308,6 +404,12 @@ async function start() {
   warmUp();
   refreshInstall();
   document.body.classList.add("is-ready");
+  // A join link (…?join=K7QF2M) opens the online pop-up with the code filled in.
+  const joinCode = cleanCode(new URLSearchParams(location.search).get("join"));
+  if (joinCode || new URLSearchParams(location.search).has("join")) {
+    history.replaceState(history.state, "", location.pathname);
+    if (joinCode) openOnline(joinCode);
+  }
   registerServiceWorker();
 }
 

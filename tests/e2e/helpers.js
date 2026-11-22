@@ -3,14 +3,16 @@ import { expect } from "@playwright/test";
 export const TODAY = "2026-11-22";
 
 /** Opens the app on a fixed date, with optional saved data (keys without the chessQuest_ prefix). */
-export async function openApp(page, { storage = {} } = {}) {
+export async function openApp(page, { storage = {}, online = false, clock = true, path = "index.html" } = {}) {
+  // Online tests use the local backend: tabs in one browser play each other through it.
+  if (online) await page.addInitScript(() => { window.__CHESS_BACKEND = "local"; });
   await page.addInitScript(({ storage }) => {
     if (sessionStorage.getItem("seeded")) return;
     sessionStorage.setItem("seeded", "1");
     for (const [key, value] of Object.entries(storage)) localStorage.setItem(`chessQuest_${key}`, JSON.stringify(value));
   }, { storage });
-  await page.clock.install({ time: new Date(`${TODAY}T10:00:00`) });
-  await page.goto("index.html");
+  if (clock) await page.clock.install({ time: new Date(`${TODAY}T10:00:00`) });
+  await page.goto(path);
   await expect(page.locator("body.is-ready")).toBeAttached();
 }
 
