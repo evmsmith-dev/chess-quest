@@ -13,14 +13,18 @@ no-cost **Spark** plan is enough for about 50 games at the same time.
 
 ## 2. Turn on anonymous sign-in
 
-1. In the left menu: **Build → Authentication → Get started**.
+1. In the left menu: **Security → Authentication → Get started**. (Firebase moves its menu around
+   from time to time. If you can't find something, type its name in the search box at the top of
+   the console, or open **All products** at the bottom of the menu. On a phone, the menu is behind
+   the ☰ button.)
 2. On the **Sign-in method** tab, choose **Anonymous**, switch it on, and **Save**.
 
 Players never see a sign-in: the app gets a random player number in the background.
 
 ## 3. Create the database
 
-1. In the left menu: **Build → Realtime Database → Create database**.
+1. Open **Realtime Database** (search for it, or find it under **All products**) and click
+   **Create database**. Make sure it's *Realtime Database*, not *Firestore*.
 2. Pick the location nearest your players (for the US: `us-central1`), then **Next**.
 3. Choose **Start in locked mode** and click **Enable**.
 4. Open the **Rules** tab, delete everything there, paste the whole contents of
@@ -36,16 +40,22 @@ delete a game once it's more than 7 days old. Without them, the database refuses
 3. Give it a nickname (`Chess Quest`). Leave **Firebase Hosting** unticked. Click **Register app**.
 4. Firebase shows a `firebaseConfig = { … }` block. It must include a `databaseURL` line (it will,
    if you created the database first). Copy the whole block.
-5. Put it in [`src/online/config.js`](../src/online/config.js) in place of `null`, or paste it
-   to Claude to do. These values are safe to publish: they only name the project. The database
+5. Put it in [`src/online/config.js`](../src/online/config.js) as
+   `export const FIREBASE_CONFIG = { … };` (in place of `null`), or paste it to Claude to do. These values are safe to publish: they only name the project. The database
    rules are what protect it.
 
 ## 5. Allow your site's address
 
-1. **Build → Authentication → Settings → Authorized domains → Add domain**.
+1. **Security → Authentication → Settings → Authorized domains → Add domain**.
 2. Add `evmsmith-dev.github.io`.
 
 Push the change. Once GitHub Pages has deployed it, **Play online** works.
+
+## Optional: clean up old player numbers
+
+Under **Authentication → Sign-in method → Anonymous** you can turn on **automatic clean-up**,
+which deletes anonymous player numbers 30 days after they were made. It needs the free upgrade to
+*Firebase Authentication with Identity Platform*. Skip it if the console asks for a payment card.
 
 ## Good to know
 

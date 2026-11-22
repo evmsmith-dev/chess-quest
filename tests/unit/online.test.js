@@ -36,6 +36,12 @@ test("joining, turns and results", () => {
   assert.equal(withResult(g3, "C", { winner: "C", reason: "resigned" }), null, "only players can end it");
 });
 
+test("the Firebase config is filled in and complete", async () => {
+  const { FIREBASE_CONFIG } = await import("../../src/online/config.js");
+  for (const key of ["apiKey", "authDomain", "databaseURL", "projectId", "appId"]) assert.ok(FIREBASE_CONFIG?.[key], `missing ${key}`);
+  assert.match(FIREBASE_CONFIG.databaseURL, /^https:\/\/.+(firebaseio\.com|firebasedatabase\.app)/);
+});
+
 test("database rules file is valid and locked down by default", () => {
   const rules = JSON.parse(readFileSync(new URL("../../database.rules.json", import.meta.url), "utf8")).rules;
   assert.equal(rules[".read"], false);

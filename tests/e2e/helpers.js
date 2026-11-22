@@ -3,9 +3,11 @@ import { expect } from "@playwright/test";
 export const TODAY = "2026-11-22";
 
 /** Opens the app on a fixed date, with optional saved data (keys without the chessQuest_ prefix). */
-export async function openApp(page, { storage = {}, online = false, clock = true, path = "index.html" } = {}) {
-  // Online tests use the local backend: tabs in one browser play each other through it.
-  if (online) await page.addInitScript(() => { window.__CHESS_BACKEND = "local"; });
+export async function openApp(page, { storage = {}, online = true, clock = true, path = "index.html", backend = "local" } = {}) {
+  // Tests never touch the real Firebase project: they use the local backend, where tabs in one
+  // browser play each other ("off" pretends Firebase isn't set up).
+  void online;
+  await page.addInitScript((backend) => { window.__CHESS_BACKEND = backend; }, backend);
   await page.addInitScript(({ storage }) => {
     if (sessionStorage.getItem("seeded")) return;
     sessionStorage.setItem("seeded", "1");

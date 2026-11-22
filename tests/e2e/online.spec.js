@@ -140,7 +140,7 @@ test("the other player going offline is shown", async ({ context }) => {
 });
 
 test("without Firebase set up, online play says so", async ({ page }) => {
-  await openApp(page);
+  await openApp(page, { backend: "off" });
   await page.locator("#online-btn").click();
   await expect(page.locator("#online-unavailable")).toBeVisible();
   await expect(page.locator("#online-setup")).toBeHidden();
