@@ -228,3 +228,81 @@ test("the daily puzzle counts toward the streak", async ({ page }) => {
   await page.locator("#result-primary").click();
   await expect(page.locator("#daily-streak")).toContainText("1-day streak");
 });
+
+async function startFriendGame(page, { w = "Ana", b = "Ben", autoFlip = true } = {}) {
+  await page.locator("#friend-btn").click();
+  await page.locator("#name-w").fill(w);
+  await page.locator("#name-b").fill(b);
+  if (!autoFlip) await page.locator("#opt-autoflip").uncheck();
+  await page.locator("#start-friend-btn").click();
+  await expect(page.locator("#play-title")).toHaveText("Two players");
+}
+
+test("two players: turns alternate and the board turns to face each player", async ({ page }) => {
+  await openApp(page);
+  await startFriendGame(page);
+  await expect(page.locator("#message")).toContainText("Ana (White) moves first");
+  // Black's pieces can't move on White's turn.
+  await tapMove(page, "e7", "e5");
+  await expect.poll(() => pieceOn(page, "e7")).toBe("bp");
+  await tapMove(page, "e2", "e4");
+  await expect(page.locator("#message")).toContainText("Ben (Black) to move");
+  await page.clock.runFor(1000);
+  // The board now faces Black: a8 is at the bottom.
+  const a8 = await square(page, "a8").boundingBox();
+  const a1 = await square(page, "a1").boundingBox();
+  expect(a8.y).toBeGreaterThan(a1.y);
+  await expect(page.locator("#bar-bottom")).toContainText("Ben");
+  await dragMove(page, "e7", "e5");
+  await expect(page.locator("#move-list")).toContainText("e5");
+  await expect(page.locator("#message")).toContainText("Ana (White) to move");
+});
+
+test("two players: undo takes back one move", async ({ page }) => {
+  await openApp(page);
+  await startFriendGame(page, { autoFlip: false });
+  await tapMove(page, "d2", "d4");
+  await tapMove(page, "d7", "d5");
+  await page.locator("#ctl-undo").click();
+  await expect.poll(() => pieceOn(page, "d7")).toBe("bp");
+  await expect.poll(() => pieceOn(page, "d4")).toBe("wp");
+  await expect(page.locator("#message")).toContainText("Ben (Black) to move");
+});
+
+test("two players: checkmate names the winner, and the game is saved meanwhile", async ({ page }) => {
+  await openApp(page);
+  await startFriendGame(page, { autoFlip: false });
+  await tapMove(page, "f2", "f3");
+  await tapMove(page, "e7", "e5");
+  // Leave and come back: the game continues from Home.
+  await page.goBack();
+  await expect(page.locator("#continue-friend-btn")).toContainText("Ana vs Ben");
+  await page.locator("#continue-friend-btn").click();
+  await tapMove(page, "g2", "g4");
+  await tapMove(page, "d8", "h4");
+  await page.clock.runFor(1000);
+  await expect(page.locator("#result-title")).toHaveText("Ben wins!");
+  await expect(page.locator("#result-text")).toContainText("Ben checkmated Ana");
+  await page.locator("#result-primary").click(); // rematch: sides swap
+  await expect(page.locator("#play-sub")).toHaveText("Ben vs Ana");
+});
+
+test("two players: a draw offer is answered by the other player", async ({ page }) => {
+  await openApp(page);
+  await startFriendGame(page, { autoFlip: false });
+  await page.getByRole("button", { name: "Game menu" }).click();
+  await page.locator("#menu-draw").click();
+  await expect(page.locator("#confirm-title")).toHaveText("Ben, accept a draw?");
+  await page.locator("#confirm-ok").click();
+  await page.clock.runFor(1000);
+  await expect(page.locator("#result-title")).toHaveText("Draw");
+});
+
+test("a bot game and a two-player game are saved separately", async ({ page }) => {
+  await openApp(page, { storage: { current: { level: "beginner", color: "w", coach: true, undo: true, hints: true, moves: ["e2e4", "e7e5"] } } });
+  await startFriendGame(page);
+  await tapMove(page, "d2", "d4");
+  await page.goBack();
+  await expect(page.locator("#continue-btn")).toBeVisible();
+  await expect(page.locator("#continue-friend-btn")).toBeVisible();
+});

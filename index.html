@@ -37,6 +37,7 @@
     </header>
 
     <button type="button" id="continue-btn" class="continue-card" hidden></button>
+    <button type="button" id="continue-friend-btn" class="continue-card" hidden></button>
 
     <section class="daily-card" aria-labelledby="daily-title">
       <div class="daily-head">
@@ -76,6 +77,10 @@
       <section class="mode-card">
         <div class="mode-head"><span class="mode-emoji" aria-hidden="true">🤖</span><div><h2>Play the computer</h2><p class="mode-tagline">A full game against a Beginner or Intermediate bot.</p></div></div>
         <div class="mode-foot"><span id="play-summary" class="mode-stat"></span><button type="button" id="new-game-btn" class="play-btn">Play</button></div>
+      </section>
+      <section class="mode-card">
+        <div class="mode-head"><span class="mode-emoji" aria-hidden="true">👥</span><div><h2>Play a friend</h2><p class="mode-tagline">Two players take turns on this phone or tablet.</p></div></div>
+        <div class="mode-foot"><span class="mode-stat">Pass and play</span><button type="button" id="friend-btn" class="play-btn">Play</button></div>
       </section>
       <section class="mode-card">
         <div class="mode-head"><span class="mode-emoji" aria-hidden="true">📖</span><div><h2>Rulebook</h2><p class="mode-tagline">Every rule of chess, with examples on a board.</p></div></div>
@@ -208,6 +213,25 @@
         <label class="toggle"><span>Hints<small>Ask the computer for a good move</small></span><input type="checkbox" id="opt-hints"></label>
       </div>
       <div class="result-actions"><button type="button" id="start-game-btn" class="primary">Start game</button></div>
+    </div>
+  </div>
+
+  <div id="friend-overlay" class="overlay" role="dialog" aria-modal="true" aria-labelledby="friend-heading" hidden>
+    <div class="overlay-backdrop" data-close></div>
+    <div class="overlay-card">
+      <button type="button" class="overlay-close" data-close aria-label="Close">✕</button>
+      <h2 id="friend-heading">Play a friend</h2>
+      <p class="overlay-note">Take turns on this device. White moves first.</p>
+      <div class="name-fields">
+        <label class="name-field"><span>⚪ White</span><input type="text" id="name-w" maxlength="16" placeholder="White" autocomplete="off" enterkeyhint="next"></label>
+        <label class="name-field"><span>⚫ Black</span><input type="text" id="name-b" maxlength="16" placeholder="Black" autocomplete="off" enterkeyhint="done"></label>
+      </div>
+      <button type="button" id="swap-names" class="link-button">⇄ Swap sides</button>
+      <div class="toggles">
+        <label class="toggle"><span>Turn the board for each player<small>Best when you pass the device back and forth</small></span><input type="checkbox" id="opt-autoflip"></label>
+        <label class="toggle"><span>Take-backs<small>Undo the last move</small></span><input type="checkbox" id="opt-friend-undo"></label>
+      </div>
+      <div class="result-actions"><button type="button" id="start-friend-btn" class="primary">Start game</button></div>
     </div>
   </div>
 

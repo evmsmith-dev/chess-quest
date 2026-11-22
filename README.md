@@ -15,6 +15,10 @@ Learn chess, solve puzzles and play the computer, in an app you install on a pho
   - All the rules apply: castling, en passant, promotion, and draws by stalemate, threefold repetition, the 50-move rule and insufficient material.
   - Optional help: a **coach** that warns before you leave a piece unprotected, **take-backs**, and **hints**. All are on by default for Beginner and off for Intermediate.
   - You can resign, offer a draw, flip the board and see the move list. An unfinished game is saved and can be continued from Home.
+- **👥 Play a friend:** two players take turns on one phone or tablet (pass and play), with optional names.
+  - The board can turn to face whoever's turn it is.
+  - Take-backs undo the last move. Either player can resign, and a draw offer is answered by the other player on the same device.
+  - A rematch swaps sides. An unfinished two-player game is saved separately from a game against the bot.
 - **📖 Rulebook:** every rule with an example board, searchable.
 
 **Moving pieces:** tap a piece and then a square, or drag it. Dots show where the piece can go. When you drag on a touch screen, the piece rides above your finger so you can see it. Illegal moves are explained ("That bishop is pinned: moving it would put your own king in check"). The board also works with a keyboard and a screen reader.

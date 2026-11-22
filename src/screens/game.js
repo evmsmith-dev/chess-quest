@@ -1,4 +1,6 @@
-// A full game against the bot.
+// A full game: against the bot, or between two players taking turns on one device
+// ("pass and play", level "friend"). The two kinds are saved separately, so starting one never
+// throws away an unfinished game of the other.
 import { Chess, targetsFor, animationFor, checkSquare, explainIllegal, capturedPieces, materialBalance, gameOutcome, OUTCOME_TEXT, piecesFromFen, PIECE_WORD } from "../chess/rules.js";
 import { botMove, bestMove } from "../chess/bot.js";
 import { Position, hangingPieces, sqName } from "../chess/engine.js";
@@ -21,18 +23,40 @@ let hooks = { onFinish: () => {}, onChange: () => {} };
 /** Lets main.js refresh Home after a game changes or ends. */
 export function setGameHooks(h) { hooks = { ...hooks, ...h }; }
 
+const isFriend = () => g?.level === "friend";
+const slot = () => (isFriend() ? "friendGame" : "current");
 export const savedGame = () => readJson("current", null);
+export const savedFriendGame = () => readJson("friendGame", null);
 
-/** Starts a new game: { level, color: "w" | "b" | "random", coach, undo, hints }. */
+/** Starts a new game against the bot: { level, color: "w" | "b" | "random", coach, undo, hints }. */
 export function newGame(options) {
   const color = options.color === "random" ? (Math.random() < 0.5 ? "w" : "b") : options.color;
   begin({ ...options, color, moves: [] });
 }
 
-/** Continues the saved game. */
-export function resumeGame() {
-  const saved = savedGame();
+/** Starts a two-player game: { names: { w, b }, autoFlip, undo }. */
+export function newFriendGame({ names, autoFlip, undo }) {
+  begin({ level: "friend", color: "w", names, autoFlip, undo, coach: false, hints: false, moves: [] });
+}
+
+/** Continues a saved game: "bot" or "friend". */
+export function resumeGame(kind = "bot") {
+  const saved = kind === "friend" ? savedFriendGame() : savedGame();
   if (saved) begin(saved);
+}
+
+/** The color whose pieces can move now: yours against the bot, whoever's turn it is with a friend. */
+const moverColor = () => (isFriend() ? g.game.turn() : g.color);
+const nameOf = (color) => g.names?.[color] || (color === "w" ? "White" : "Black");
+const sideWord = (color) => (color === "w" ? "White" : "Black");
+/** "Alex (White)", or just "White" when the player kept the default name. */
+const label = (color) => (nameOf(color) === sideWord(color) ? sideWord(color) : `${nameOf(color)} (${sideWord(color)})`);
+
+function turnMessage(lastMove) {
+  const turn = g.game.turn();
+  const prefix = lastMove ? `${lastMove.san}. ` : "";
+  if (g.game.inCheck()) return `${prefix}${label(turn)}, you're in check! Protect your king.`;
+  return `${prefix}${label(turn)} to move.`;
 }
 
 function begin(saved) {
@@ -41,6 +65,14 @@ function begin(saved) {
   g = { ...saved, game, thinking: false, over: null, token: 0, hintsUsed: saved.hintsUsed || 0, undosUsed: saved.undosUsed || 0, coachPending: null };
   if (currentScreen() !== "play") openScreen("play", { onLeave: leave });
   useMode(mode);
+  if (isFriend()) {
+    setTitle("Two players", `${nameOf("w")} vs ${nameOf("b")}`);
+    board.setOrientation(g.autoFlip ? game.turn() : "w");
+    render(false);
+    save();
+    setMessage(game.history().length ? turnMessage() : `${label("w")} moves first. Pass the device after each move.`);
+    return;
+  }
   setTitle(BOT[g.level].name, g.color === "w" ? "You play White" : "You play Black");
   board.setOrientation(g.color);
   render(false);
@@ -58,22 +90,22 @@ function leave() {
 
 function save() {
   if (!g) return;
-  if (g.over) { writeJson("current", null); return; }
-  const { level, color, coach, undo, hints, hintsUsed, undosUsed } = g;
-  writeJson("current", { level, color, coach, undo, hints, hintsUsed, undosUsed, moves: g.game.history({ verbose: true }).map((m) => m.from + m.to + (m.promotion || "")), savedAt: Date.now() });
+  if (g.over) { writeJson(slot(), null); hooks.onChange(); return; }
+  const { level, color, coach, undo, hints, hintsUsed, undosUsed, names, autoFlip } = g;
+  writeJson(slot(), { level, color, coach, undo, hints, hintsUsed, undosUsed, names, autoFlip, moves: g.game.history({ verbose: true }).map((m) => m.from + m.to + (m.promotion || "")), savedAt: Date.now() });
   hooks.onChange();
 }
 
 const mode = {
   getTargets(from) {
-    if (!g || g.over || g.thinking || g.coachPending || g.game.turn() !== g.color) return [];
+    if (!g || g.over || g.thinking || g.coachPending || g.flipping || g.game.turn() !== moverColor()) return [];
     return targetsFor(g.game, from);
   },
   async onMove(from, to) {
     if (!g) return;
     let promotion;
     if (isPromotionMove(board.pieces, from, to)) {
-      promotion = await choosePromotion(g.color);
+      promotion = await choosePromotion(moverColor());
       if (!promotion) { render(false); return; } // dismissed: the pawn goes back
     }
     playerMove({ from, to, promotion });
@@ -86,6 +118,10 @@ const mode = {
   onTap(square) {
     if (!g || g.over) return;
     const piece = g.game.get(square);
+    if (isFriend()) {
+      if (piece && piece.color !== g.game.turn()) setMessage(`It's ${label(g.game.turn())}'s turn.`, "info");
+      return;
+    }
     if (g.thinking) setMessage("The bot is thinking…");
     else if (piece && piece.color !== g.color) setMessage(`That's ${g.color === "w" ? "Black" : "White"}'s ${PIECE_WORD[piece.type]}. You play ${g.color === "w" ? "White" : "Black"}.`, "info");
   },
@@ -100,9 +136,19 @@ function render(animate = true, lastMove = null) {
   board.setHighlights({ lastMove: last ? [last.from, last.to] : [], check: checkSquare(game) });
   const caps = capturedPieces(game);
   const balance = materialBalance(game);
+  const plus = (color) => { const v = color === "w" ? balance : -balance; return v > 0 ? v : 0; };
+  if (isFriend()) {
+    // The player at the bottom is whoever the board faces.
+    const bar = (color) => ({ name: nameOf(color), emoji: color === "w" ? "⚪" : "⚫", captured: caps[color], color, plus: plus(color), status: !g.over && game.turn() === color ? "to move" : "" });
+    const bottom = board.orientation;
+    setBars(bar(bottom === "w" ? "b" : "w"), bar(bottom));
+    setMoveList(game.history());
+    board.setMovable(!g.over && !g.flipping ? game.turn() : null);
+    controls();
+    return;
+  }
   const bot = BOT[g.level];
   const botColor = g.color === "w" ? "b" : "w";
-  const plus = (color) => { const v = color === "w" ? balance : -balance; return v > 0 ? v : 0; };
   setBars(
     { name: bot.name, emoji: bot.emoji, captured: caps[botColor], color: botColor, plus: plus(botColor), status: g.thinking ? '<span class="thinking">thinking</span>' : "" },
     { name: "You", emoji: "🙂", captured: caps[g.color], color: g.color, plus: plus(g.color) },
@@ -116,8 +162,16 @@ function controls() {
   if (!g) return;
   if (g.over) {
     setControls([
-      { label: "✨ New game", onClick: () => openNewGame() },
-      { label: "🔁 Rematch", kind: "primary", onClick: () => newGame({ ...g, color: g.color === "w" ? "b" : "w" }) },
+      { label: "✨ New game", onClick: () => openNewGame(isFriend() ? "friend" : "bot") },
+      { label: "🔁 Rematch", kind: "primary", onClick: rematch },
+    ]);
+    return;
+  }
+  if (isFriend()) {
+    setControls([
+      ...(g.undo ? [{ label: "↶ Undo", id: "ctl-undo", onClick: undo, disabled: !g.game.history().length }] : []),
+      { label: "⇅ Flip", ariaLabel: "Flip the board", onClick: () => { board.setOrientation(board.orientation === "w" ? "b" : "w"); render(false); } },
+      { label: "⋯ More", ariaLabel: "Game menu", onClick: () => openOverlay("menu-overlay") },
     ]);
     return;
   }
@@ -138,7 +192,33 @@ function applyMove(moveSpec) {
   return move;
 }
 
+/** A rematch: against the bot you switch colors; two players swap sides. */
+function rematch() {
+  if (isFriend()) newFriendGame({ names: { w: nameOf("b"), b: nameOf("w") }, autoFlip: g.autoFlip, undo: g.undo });
+  else newGame({ ...g, color: g.color === "w" ? "b" : "w" });
+}
+
+/** Two players: after a move, turn the board to face the next player (if that's switched on). */
+function friendMoved(move) {
+  setMessage(turnMessage(move));
+  if (!g.autoFlip) return;
+  const token = g.token;
+  g.flipping = true;
+  board.setMovable(null);
+  setTimeout(() => {
+    if (!g || token !== g.token) return;
+    g.flipping = false;
+    board.setOrientation(g.game.turn());
+    render(false);
+  }, 700);
+}
+
 function playerMove(spec) {
+  if (isFriend()) {
+    const move = applyMove(spec);
+    if (!finishIfOver()) friendMoved(move);
+    return;
+  }
   const before = new Position(g.game.fen());
   const side = g.color === "w" ? 0 : 1;
   const hangingBefore = new Set(hangingPieces(before, side).map(sqName));
@@ -213,8 +293,10 @@ function finishIfOver(forced) {
   if (!outcome) return false;
   g.over = outcome;
   g.thinking = false;
+  g.flipping = false;
   render(false);
   save();
+  if (isFriend()) { friendResult(outcome); return true; }
   const won = outcome.result === g.color;
   const draw = outcome.result === "draw";
   const stats = readJson("games", {});
@@ -242,9 +324,47 @@ function finishIfOver(forced) {
   return true;
 }
 
+/** The result of a two-player game. */
+function friendResult(outcome) {
+  hooks.onFinish("friend");
+  setTimeout(() => {
+    if (!g || g.over !== outcome) return;
+    const draw = outcome.result === "draw";
+    const winner = outcome.result;
+    const loser = winner === "w" ? "b" : "w";
+    play(draw ? "draw" : "win");
+    buzz("win");
+    if (!draw) window.confetti?.({ particleCount: 120, spread: 75, origin: { y: 0.6 }, disableForReducedMotion: true });
+    const text = draw
+      ? OUTCOME_TEXT[outcome.reason]
+      : outcome.reason === "resigned" ? `${nameOf(loser)} resigned.` : `${nameOf(winner)} checkmated ${nameOf(loser)}.`;
+    showResult({
+      emoji: draw ? "🤝" : "🏆",
+      title: draw ? "Draw" : `${nameOf(winner)} wins!`,
+      text: outcome.reason === "agreed" ? "You agreed to a draw." : text,
+      stats: [["Moves", Math.ceil(g.game.history().length / 2)]],
+      secondary: ["See the board", null],
+      primary: ["Rematch", rematch],
+    });
+    setMessage(draw ? "The game is a draw." : `${label(winner)} wins! 🎉`);
+  }, 700);
+}
+
 function undo() {
   if (!g || g.thinking || g.over) return;
   g.token++;
+  if (isFriend()) {
+    // Two players: take back just the last move.
+    const m = g.game.undo();
+    if (!m) return;
+    g.flipping = false;
+    board.setPieces(piecesFromFen(g.game.fen()), { moves: [[m.to, m.from]] });
+    if (g.autoFlip) board.setOrientation(g.game.turn());
+    render(false);
+    save();
+    setMessage(`Move taken back. ${turnMessage()}`);
+    return;
+  }
   const undone = [];
   // Take back the bot's reply and your move, so it's your turn again.
   do {
@@ -281,11 +401,27 @@ async function hint() {
 // ---------- Game menu ----------
 
 byId("menu-resign").addEventListener("click", () => {
-  closeTopThen(() => confirm("Resign this game?", "The bot wins this game. You can start a new one right away.", "Resign", () => finishIfOver({ result: g.color === "w" ? "b" : "w", reason: "resigned" })));
+  closeTopThen(() => {
+    if (!g || g.over) return;
+    if (isFriend()) {
+      // The player whose turn it is resigns.
+      const loser = g.game.turn();
+      const winner = loser === "w" ? "b" : "w";
+      confirm(`${nameOf(loser)}, resign?`, `${nameOf(winner)} wins this game.`, "Resign", () => finishIfOver({ result: winner, reason: "resigned" }));
+      return;
+    }
+    confirm("Resign this game?", "The bot wins this game. You can start a new one right away.", "Resign", () => finishIfOver({ result: g.color === "w" ? "b" : "w", reason: "resigned" }));
+  });
 });
 byId("menu-draw").addEventListener("click", () => closeTopThen(offerDraw));
 async function offerDraw() {
   if (!g || g.over || g.thinking) return;
+  if (isFriend()) {
+    // The player to move offers; the other player answers on the same device.
+    const other = g.game.turn() === "w" ? "b" : "w";
+    confirm(`${nameOf(other)}, accept a draw?`, `${nameOf(g.game.turn())} offers a draw. Hand the device over so ${nameOf(other)} can answer.`, "Accept draw", () => finishIfOver({ result: "draw", reason: "agreed" }));
+    return;
+  }
   // The bot accepts when it isn't better.
   const { score } = await bestMove(g.game.fen(), positionsSinceReset(g.game));
   const botToMove = g.game.turn() !== g.color;
@@ -294,8 +430,9 @@ async function offerDraw() {
   else setMessage(g.game.history().length < 20 ? "The bot says: it's too early for a draw. Let's play on!" : "The bot declines: it thinks it's doing fine. Play on!", "info");
 }
 let openNewGame = () => openOverlay("newgame-overlay");
+/** main.js supplies the function that opens the new-game pop-up: openNewGame("bot" | "friend"). */
 export const setNewGameOpener = (fn) => { openNewGame = fn; };
-byId("menu-new").addEventListener("click", () => closeTopThen(() => openNewGame()));
+byId("menu-new").addEventListener("click", () => closeTopThen(() => openNewGame(isFriend() ? "friend" : "bot")));
 
 let confirmAction = null;
 function confirm(title, text, okLabel, action) {

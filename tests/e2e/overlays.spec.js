@@ -5,6 +5,7 @@ import { openApp, tapMove } from "./helpers.js";
 const OPENERS = {
   "settings-overlay": async (page) => page.locator("#settings-btn").click(),
   "newgame-overlay": async (page) => page.locator("#new-game-btn").click(),
+  "friend-overlay": async (page) => page.locator("#friend-btn").click(),
   "tip-overlay": async (page) => {
     await page.locator("#learn-btn").click();
     await page.locator('[data-lesson="rook"]').click();

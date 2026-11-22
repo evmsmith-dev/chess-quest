@@ -371,6 +371,14 @@ html.no-coords .coord { display: none; }
 .toggle + .toggle { border-top: 1px solid color-mix(in srgb, var(--muted) 20%, transparent); }
 .toggle small { display: block; font-weight: 400; font-size: 0.82rem; color: var(--muted); }
 .toggle input[type="checkbox"] { width: 22px; height: 22px; accent-color: var(--primary); flex: none; }
+.name-fields { display: grid; gap: 8px; margin-bottom: 4px; }
+.name-field { display: flex; align-items: center; gap: 10px; font-weight: 600; }
+.name-field span { width: 76px; flex: none; }
+.name-field input {
+  flex: 1; min-width: 0; min-height: 48px; border-radius: 12px; border: 2px solid var(--border);
+  background: var(--bg); color: var(--text); padding: 8px 12px; font: inherit; font-size: 1rem;
+}
+#swap-names { margin: 0 0 8px auto; display: block; }
 .install-setting-btn { width: 100%; min-height: 48px; border: 0; border-radius: 14px; font-weight: 700; background: var(--primary-soft); color: var(--primary-dark); }
 
 .result-card { text-align: center; }

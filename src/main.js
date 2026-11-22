@@ -13,7 +13,7 @@ import { UNITS, ALL_LESSONS } from "./content/lessons.js";
 import { RULES } from "./content/rules.js";
 import { warmUp } from "./chess/bot.js";
 import { miniBoard } from "./screens/boardscreen.js";
-import { newGame, resumeGame, savedGame, setGameHooks, setNewGameOpener } from "./screens/game.js";
+import { newGame, newFriendGame, resumeGame, savedGame, savedFriendGame, setGameHooks, setNewGameOpener } from "./screens/game.js";
 import { startLesson, lessonProgress, nextLesson, setLessonHooks } from "./screens/lesson.js";
 import { SETS, loadPuzzles, puzzleList, solvedPuzzles, startSet, startPuzzle, dailyPuzzle, dailyRecord, dailyStreak, setPuzzleHooks } from "./screens/puzzle.js";
 
@@ -29,6 +29,13 @@ function renderHome() {
   if (saved) {
     const moves = Math.ceil(saved.moves.length / 2);
     cont.innerHTML = `<span class="continue-emoji" aria-hidden="true">♟️</span><span class="continue-text"><strong>Continue your game</strong><br>vs ${saved.level === "beginner" ? "Beginner" : "Intermediate"} bot · ${moves ? `move ${moves}` : "just started"}</span><span class="continue-go" aria-hidden="true">➜</span>`;
+  }
+  const friend = savedFriendGame();
+  const contFriend = byId("continue-friend-btn");
+  contFriend.hidden = !friend;
+  if (friend) {
+    const moves = Math.ceil(friend.moves.length / 2);
+    contFriend.innerHTML = `<span class="continue-emoji" aria-hidden="true">👥</span><span class="continue-text"><strong>Continue the two-player game</strong><br>${escapeHtml(friend.names?.w || "White")} vs ${escapeHtml(friend.names?.b || "Black")} · ${moves ? `move ${moves}` : "just started"}</span><span class="continue-go" aria-hidden="true">➜</span>`;
   }
 
   // Daily puzzle.
@@ -183,10 +190,38 @@ byId("start-game-btn").addEventListener("click", () => {
   const choice = { ...gameChoice };
   closeTopThen(() => newGame(choice));
 });
-function openNewGame() {
+function openNewGame(kind = "bot") {
+  if (kind === "friend") { openFriendGame(); return; }
   renderNewGame();
   openOverlay("newgame-overlay", { focus: "#start-game-btn" });
 }
+
+// ---------- Two players ----------
+
+const DEFAULT_FRIEND = { names: { w: "", b: "" }, autoFlip: true, undo: true };
+function openFriendGame() {
+  const prefs = { ...DEFAULT_FRIEND, ...readJson("friendPrefs", {}) };
+  byId("name-w").value = prefs.names.w || "";
+  byId("name-b").value = prefs.names.b || "";
+  byId("opt-autoflip").checked = prefs.autoFlip;
+  byId("opt-friend-undo").checked = prefs.undo;
+  openOverlay("friend-overlay", { focus: "#start-friend-btn" });
+}
+byId("swap-names").addEventListener("click", () => {
+  const w = byId("name-w").value;
+  byId("name-w").value = byId("name-b").value;
+  byId("name-b").value = w;
+});
+byId("name-w").addEventListener("keydown", (e) => { if (e.key === "Enter") byId("name-b").focus(); });
+byId("name-b").addEventListener("keydown", (e) => { if (e.key === "Enter") byId("start-friend-btn").click(); });
+byId("start-friend-btn").addEventListener("click", () => {
+  const typed = { w: byId("name-w").value.trim(), b: byId("name-b").value.trim() };
+  const prefs = { names: typed, autoFlip: byId("opt-autoflip").checked, undo: byId("opt-friend-undo").checked };
+  writeJson("friendPrefs", prefs);
+  const names = { w: typed.w || "White", b: typed.b || "Black" };
+  if (names.w === names.b) { names.w += " (W)"; names.b += " (B)"; }
+  closeTopThen(() => newFriendGame({ ...prefs, names }));
+});
 
 // ---------- Settings ----------
 
@@ -228,8 +263,10 @@ onSettingsChange(applySettings);
 // ---------- Wiring ----------
 
 byId("settings-btn").addEventListener("click", () => openOverlay("settings-overlay"));
-byId("continue-btn").addEventListener("click", resumeGame);
-byId("new-game-btn").addEventListener("click", openNewGame);
+byId("continue-btn").addEventListener("click", () => resumeGame("bot"));
+byId("continue-friend-btn").addEventListener("click", () => resumeGame("friend"));
+byId("friend-btn").addEventListener("click", () => openFriendGame());
+byId("new-game-btn").addEventListener("click", () => openNewGame("bot"));
 byId("learn-btn").addEventListener("click", () => openScreen("learn"));
 byId("challenges-btn").addEventListener("click", () => openScreen("challenges"));
 byId("rules-btn").addEventListener("click", openRules);
