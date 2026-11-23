@@ -312,3 +312,50 @@ test("without a seat key, a changed player number is explained", async ({ contex
   await host.locator("#continue-online-btn").click();
   await expect(host.locator("#message")).toContainText("can't take part in this game any more");
 });
+
+test("offline: the online pop-up says so and its buttons wait for the connection", async ({ page, context }) => {
+  await openApp(page);
+  await page.locator("#online-btn").click();
+  await expect(page.locator("#online-offline")).toBeHidden();
+  await context.setOffline(true);
+  await expect(page.locator("#online-offline")).toBeVisible();
+  await expect(page.locator("#online-create")).toBeDisabled();
+  await expect(page.locator("#online-join")).toBeDisabled();
+  await context.setOffline(false);
+  await expect(page.locator("#online-offline")).toBeHidden();
+  await expect(page.locator("#online-create")).toBeEnabled();
+});
+
+test("offline during a game: a banner says moves will send later", async ({ context }) => {
+  const { host } = await twoPlayers(context);
+  await expect(host.locator("#conn-banner")).toBeHidden();
+  await context.setOffline(true);
+  await expect(host.locator("#conn-banner")).toBeVisible();
+  await expect(host.locator("#conn-banner")).toContainText("Your moves will be sent when you reconnect");
+  await context.setOffline(false);
+  await expect(host.locator("#conn-banner")).toBeHidden();
+  // Leaving the game hides it for good.
+  await context.setOffline(true);
+  await host.goBack();
+  await expect(host.locator("#conn-banner")).toBeHidden();
+  await context.setOffline(false);
+});
+
+test("a request that never answers gives up after 10 seconds", async ({ page }) => {
+  await openApp(page);
+  await page.evaluate(() => { window.__CHESS_HANG = true; });
+  await page.locator("#online-btn").click();
+  await page.locator("#online-create").click();
+  await expect(page.locator("#online-create")).toBeDisabled();
+  await page.clock.fastForward(11000);
+  await expect(page.locator("#online-error")).toContainText("Couldn't connect");
+  await expect(page.locator("#online-create")).toBeEnabled();
+});
+
+test("Continue while offline explains why it can't open", async ({ page, context }) => {
+  await openApp(page, { storage: { onlineGame: { code: "ABCDEF", color: "w" } } });
+  await context.setOffline(true);
+  await page.locator("#continue-online-btn").click();
+  await expect(page.locator("#toast")).toContainText("You're offline");
+  await context.setOffline(false);
+});

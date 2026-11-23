@@ -154,6 +154,7 @@
 
     <div class="side-col">
       <div id="task-dots" class="task-dots" hidden></div>
+      <div id="conn-banner" class="conn-banner" role="status" hidden>📡 <strong>You're offline.</strong> Your moves will be sent when you reconnect.</div>
       <div id="message" class="message" role="status" aria-live="polite"></div>
       <div id="coach" class="coach" role="alert" hidden>
         <p id="coach-text"></p>
@@ -266,6 +267,7 @@
         <p class="overlay-note">Online play isn't set up yet. The app's owner needs to connect it to Firebase (see the README).</p>
       </div>
       <div id="online-setup">
+        <p id="online-offline" class="offline-note" role="status" hidden>📡 <strong>You're offline.</strong> Online play needs the internet. You can create, join and challenge again as soon as you're back.</p>
         <p class="overlay-note">Play someone on another device: one of you creates a game and sends the code. No names, no chat.</p>
         <div id="friends-section" hidden>
           <p class="setting-label">Your friends</p>

@@ -394,6 +394,9 @@ html.no-coords .coord { display: none; }
 .friend-list .primary { border: 0; border-radius: 999px; padding: 6px 14px; min-height: 40px; font-weight: 700; }
 .friend-list .friend-remove { border: 0; background: none; width: 40px; height: 40px; border-radius: 50%; color: var(--muted); font-weight: 700; }
 .text-input { width: 100%; min-height: 48px; border-radius: 12px; border: 2px solid var(--border); background: var(--bg); color: var(--text); padding: 8px 12px; font: inherit; font-size: 1.05rem; }
+.offline-note, .conn-banner { margin: 0 0 10px; padding: 10px 14px; border-radius: 14px; background: #fff3cd; color: #5c4400; border: 2px solid #f0c14b; line-height: 1.4; }
+:root[data-theme="dark"] .offline-note, :root[data-theme="dark"] .conn-banner { background: #3a3000; color: #ffe8a3; border-color: #8a6d00; }
+.conn-banner { margin: 0; }
 .avatar-options { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
 .avatar-options button { min-height: 44px; border: 2px solid transparent; border-radius: 12px; background: var(--bg); font-size: 1.5rem; }
 .avatar-options button[aria-pressed="true"] { border-color: var(--primary); background: var(--primary-soft); }

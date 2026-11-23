@@ -56,6 +56,7 @@ export async function createLocalBackend() {
     uid,
     serverNow: () => Date.now(),
     async create({ color, avatar, minutes = 0 }) {
+      if (window.__CHESS_HANG) return new Promise(() => {}); // tests: a request that never answers
       let code;
       do code = makeCode(); while (read(code));
       write(code, newGameRecord({ uid, color, avatar, now: Date.now(), minutes }));
@@ -63,6 +64,7 @@ export async function createLocalBackend() {
       return code;
     },
     async join(code, avatar) {
+      if (window.__CHESS_HANG) return new Promise(() => {});
       const game = read(code);
       if (!game || game.expires < Date.now()) throw new Error("not-found");
       const next = withJoin(game, uid, avatar);

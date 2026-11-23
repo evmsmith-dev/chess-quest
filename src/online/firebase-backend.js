@@ -3,6 +3,7 @@
 // small and works offline. database.rules.json is the server-side half of this file.
 import { initializeApp } from "firebase/app";
 import { initializeAppCheck, ReCaptchaEnterpriseProvider, ReCaptchaV3Provider } from "firebase/app-check";
+import { reportBackendConnection } from "./connection.js";
 import { getAuth, signInAnonymously, onAuthStateChanged } from "firebase/auth";
 import {
   getDatabase, ref, get, set, update, remove, onValue, runTransaction, onDisconnect, serverTimestamp,
@@ -38,6 +39,8 @@ export async function createFirebaseBackend(config, appCheckSiteKey = null, appC
   let offset = 0;
   onValue(ref(db, ".info/serverTimeOffset"), (snap) => { offset = snap.val() || 0; });
   const serverNow = () => Date.now() + offset;
+  // Tell the rest of the app whether Firebase is actually connected (see connection.js).
+  onValue(ref(db, ".info/connected"), (snap) => reportBackendConnection(snap.val() === true));
 
   /** Stores this device's private seat key for `color` in game `code` (once per seat). */
   async function saveSeat(code, color) {

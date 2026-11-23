@@ -9,6 +9,7 @@ import { readJson, writeJson } from "../storage.js";
 import { play } from "../ui/audio.js";
 import { buzz } from "../ui/haptics.js";
 import { getBackend } from "../online/backend.js";
+import { isOffline, onConnectionChange } from "../online/connection.js";
 import { moveList, GAME_DAYS, avatarOf, clockAt, outOfTime, turnOf, AVATARS } from "../online/common.js";
 import { openOverlay, closeTopThen } from "../ui/overlays.js";
 import { confirm } from "./game.js";
@@ -47,6 +48,7 @@ const formatClock = (ms) => {
 
 /** Opens the game `code`, where this device plays `color`. `friendName` when it's a challenge. */
 export async function openOnlineGame(code, color, { friendName = null, inviteId = null } = {}) {
+  if (isOffline()) throw new Error("offline");
   const backend = await getBackend();
   if (!backend) return;
   writeJson("onlineGame", { code, color });
@@ -64,6 +66,7 @@ export async function openOnlineGame(code, color, { friendName = null, inviteId 
   mine.unwatch = backend.watch(code, (rec) => { if (O === mine) update(rec); });
   mine.stopPresence = backend.setPresence(code, color);
   mine.ticker = setInterval(() => { if (O === mine) tick(); }, 250);
+  byId("conn-banner").hidden = !isOffline();
 }
 
 /** Updates the clocks every quarter second, and records a loss on time when a clock runs out. */
@@ -85,8 +88,12 @@ function tick() {
   }
 }
 
+// During an online game, a banner says when this device is offline (moves wait and send later).
+onConnectionChange((offline) => { byId("conn-banner").hidden = !(offline && O); });
+
 function leave() {
   if (!O) return;
+  byId("conn-banner").hidden = true;
   clearInterval(O.ticker);
   O.unwatch?.();
   O.stopPresence?.();
