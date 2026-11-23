@@ -7,6 +7,22 @@ const OPENERS = {
   "newgame-overlay": async (page) => page.locator("#new-game-btn").click(),
   "friend-overlay": async (page) => page.locator("#friend-btn").click(),
   "online-overlay": async (page) => page.locator("#online-btn").click(),
+  "addfriend-overlay": async (page) => {
+    // Finish a quick online game against a second tab, then tap Add friend.
+    const guest = await page.context().newPage();
+    await openApp(guest);
+    await page.locator("#online-btn").click();
+    await page.locator("#online-create").click();
+    const code = (await page.locator(".game-code").textContent()).trim();
+    await guest.locator("#online-btn").click();
+    await guest.locator("#online-code").fill(code);
+    await guest.locator("#online-join").click();
+    await page.locator("#controls").getByRole("button", { name: /Resign/ }).click();
+    await page.locator("#confirm-ok").click();
+    await page.clock.runFor(1500);
+    await page.locator("#result-overlay .overlay-close").click();
+    await page.locator("#ctl-friend").click();
+  },
   "tip-overlay": async (page) => {
     await page.locator("#learn-btn").click();
     await page.locator('[data-lesson="rook"]').click();

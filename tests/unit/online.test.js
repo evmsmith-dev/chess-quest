@@ -74,3 +74,32 @@ test("database rules file is valid and locked down by default", () => {
   assert.equal(rules[".write"], false);
   assert.match(rules.games.$code[".write"], /auth != null/);
 });
+
+test("clocks: time runs only for the player to move, and a flag can be claimed", async () => {
+  const { clockAt, outOfTime } = await import("../../src/online/common.js");
+  const t0 = 1_000_000;
+  const created = newGameRecord({ uid: "A", color: "w", avatar: "🦊", now: t0, minutes: 5 });
+  assert.equal(created.clock, 300000);
+  const g = withJoin(created, "B", "🐼", t0);
+  assert.deepEqual(clockAt(g, t0 + 10000), { w: 290000, b: 300000 });
+  const g2 = withMove(g, "A", 0, "e2e4", null, t0 + 10000);
+  assert.equal(g2.time.w, 290000);
+  assert.equal(g2.lastMoveAt, t0 + 10000);
+  assert.deepEqual(clockAt(g2, t0 + 25000), { w: 290000, b: 285000 });
+  assert.equal(outOfTime(g2, t0 + 200000), false);
+  assert.equal(withResult(g2, "A", { winner: "w", reason: "timeout" }, t0 + 200000), null, "no claim before the flag falls");
+  const late = t0 + 10000 + 300000 + 2000;
+  assert.equal(outOfTime(g2, late), true);
+  assert.equal(withMove(g2, "B", 1, "e7e5", null, late), null, "no moves after your time runs out");
+  assert.equal(withResult(g2, "B", { winner: "b", reason: "timeout" }, late), null, "the player out of time can't win on time");
+  const over = withResult(g2, "B", { winner: "w", reason: "timeout" }, late);
+  assert.equal(over.result.reason, "timeout");
+  assert.equal(newGameRecord({ uid: "A", color: "w", avatar: "🦊", now: t0, minutes: 7 }).clock, undefined, "only 5, 10 or 15 minutes");
+});
+
+test("friend link ids", async () => {
+  const { makePairId, PAIR_LENGTH } = await import("../../src/online/common.js");
+  const id = makePairId();
+  assert.equal(id.length, PAIR_LENGTH);
+  assert.match(id, /^[A-HJKMNP-Z2-9]{16}$/); // the pattern in database.rules.json
+});

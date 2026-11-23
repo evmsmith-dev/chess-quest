@@ -145,3 +145,95 @@ test("without Firebase set up, online play says so", async ({ page }) => {
   await expect(page.locator("#online-unavailable")).toBeVisible();
   await expect(page.locator("#online-setup")).toBeHidden();
 });
+
+async function twoPlayersWith(context, { minutes = 0, clock = false } = {}) {
+  const host = await context.newPage();
+  const guest = await context.newPage();
+  await openApp(host, { clock });
+  await openApp(guest, { clock });
+  await host.locator("#online-btn").click();
+  await host.locator('[data-online-color="w"]').click();
+  await host.locator(`[data-clock-minutes="${minutes}"]`).click();
+  await host.locator("#online-create").click();
+  const code = (await host.locator(".game-code").textContent()).trim();
+  await joinGame(guest, code);
+  await expect(host.locator("#message")).toContainText("Your move");
+  return { host, guest };
+}
+
+test("a clock game shows both clocks and only the mover's runs", async ({ context }) => {
+  const { host, guest } = await twoPlayersWith(context, { minutes: 5 });
+  await expect(host.locator('#bar-bottom [data-clock="w"]')).toHaveText(/^4:5\d|^5:00$/);
+  await expect(host.locator('#bar-bottom [data-clock="w"]')).toHaveClass(/is-running/);
+  await expect(guest.locator('#bar-bottom [data-clock="b"]')).toHaveText("5:00");
+  await tapMove(host, "e2", "e4");
+  await expect(guest.locator('#bar-bottom [data-clock="b"]')).toHaveClass(/is-running/);
+  await expect(host.locator('#bar-bottom [data-clock="w"]')).not.toHaveClass(/is-running/);
+});
+
+test("running out of time loses the game", async ({ context }) => {
+  const { host, guest } = await twoPlayersWith(context, { minutes: 5, clock: true });
+  // White (the host) never moves: five minutes later the flag falls.
+  await host.clock.fastForward("05:05");
+  await expect(host.locator("#result-title")).toHaveText("Your opponent wins", { timeout: 10000 });
+  await expect(host.locator("#result-text")).toContainText("You ran out of time");
+  await expect(guest.locator("#result-title")).toHaveText("You win!");
+});
+
+test("friends: save a friend, then challenge them from Play online", async ({ context }) => {
+  // Both tabs share this browser's storage, so one saved friend is "seen" by both; on real
+  // devices each player keeps their own list and nickname.
+  const { host, guest } = await twoPlayers(context);
+  await guest.locator("#controls").getByRole("button", { name: /Resign/ }).click();
+  await guest.locator("#confirm-ok").click();
+  await host.locator("#result-overlay .overlay-close").click();
+  await host.locator("#ctl-friend").click();
+  await host.locator("#friend-name").fill("Sam");
+  await host.locator("#save-friend").click();
+  await expect(host.locator("#ctl-friend")).toHaveCount(0);
+  // The host challenges Sam from Play online.
+  await host.goBack();
+  await host.locator("#online-btn").click();
+  await expect(host.locator("#friend-list")).toContainText("Sam");
+  await host.locator("[data-challenge]").click();
+  await expect(host.locator("#message")).toContainText("Waiting for Sam");
+  // The other device sees the challenge on Home (not the device that sent it) and joins.
+  await expect(host.locator("#invite-card")).toBeHidden();
+  await guest.goBack();
+  // Shared storage again: the host's "current online game" would look like the guest's own.
+  await guest.evaluate(() => localStorage.removeItem("chessQuest_onlineGame"));
+  await guest.reload();
+  await expect(guest.locator("#invite-card")).toBeVisible();
+  await expect(guest.locator("#invite-text")).toContainText("challenged you to a game!");
+  await guest.locator("#invite-join").click();
+  await expect(guest.locator("#play-title")).toHaveText("Online game");
+  await expect(host.locator("#message")).toContainText("Your move");
+  await expect(host.locator("#bar-top")).toContainText("Sam");
+  await expect(guest.locator("#invite-card")).toBeHidden();
+});
+
+test("a friend can be removed", async ({ context }) => {
+  const page = await context.newPage();
+  await openApp(page, { storage: { friends: [{ id: "ABCDEFGHJKMNPQRS", name: "Sam", avatar: 2, added: 1 }] } });
+  await page.locator("#online-btn").click();
+  await expect(page.locator("#friend-list")).toContainText("Sam");
+  await page.getByRole("button", { name: "Remove Sam" }).click();
+  await expect(page.locator("#friends-section")).toBeHidden();
+});
+
+test("the daily puzzle shows today's anonymous stats", async ({ page }) => {
+  await openApp(page);
+  await page.locator("#daily-btn").click();
+  for (let step = 0; step < 3; step++) {
+    if (await page.locator("#result-overlay").isVisible()) break;
+    await page.locator("#ctl-hint").click();
+    await page.locator("#ctl-hint").click();
+    const m = (await page.locator("#message").textContent()).match(/from (\w\d) to (\w\d)/);
+    await tapMove(page, m[1], m[2]);
+    if (await page.locator("#promotion-overlay").isVisible()) await page.locator('[data-promo="q"]').click();
+    await page.clock.runFor(1500);
+  }
+  await expect(page.locator("#result-text")).toContainText("You're the first to solve it today!");
+  await page.locator("#result-primary").click();
+  await expect(page.locator("#daily-status")).toContainText("first to solve it today");
+});

@@ -9,7 +9,8 @@ import { readJson, writeJson } from "../storage.js";
 import { play } from "../ui/audio.js";
 import { buzz } from "../ui/haptics.js";
 import { getBackend } from "../online/backend.js";
-import { moveList, GAME_DAYS, avatarOf } from "../online/common.js";
+import { moveList, GAME_DAYS, avatarOf, clockAt, outOfTime, turnOf, AVATARS } from "../online/common.js";
+import { openOverlay, closeTopThen } from "../ui/overlays.js";
 import { confirm } from "./game.js";
 
 const byId = (id) => document.getElementById(id);
@@ -32,14 +33,26 @@ export function toast(text) {
   toast.timer = setTimeout(() => el.classList.remove("is-visible"), 2200);
 }
 
-/** Opens the game `code`, where this device plays `color`. */
-export async function openOnlineGame(code, color) {
+// ---------- Friends (saved on this device only) ----------
+// [{ id, name, avatar, added }]: id is the private friend link, name is the nickname this
+// player chose (never sent anywhere), avatar is the friend's avatar number.
+export const friends = () => readJson("friends", []);
+export const saveFriends = (list) => { writeJson("friends", list); hooks.onChange(); };
+const friendByPair = (id) => friends().find((f) => f.id === id);
+
+const formatClock = (ms) => {
+  const total = Math.ceil(ms / 1000);
+  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
+};
+
+/** Opens the game `code`, where this device plays `color`. `friendName` when it's a challenge. */
+export async function openOnlineGame(code, color, { friendName = null } = {}) {
   const backend = await getBackend();
   if (!backend) return;
   writeJson("onlineGame", { code, color });
   hooks.onChange();
   if (O) leave();
-  O = { code, color, backend, game: new Chess(), rec: null, token: 0, sending: false, shownResult: false, broken: false };
+  O = { code, color, backend, game: new Chess(), rec: null, token: 0, sending: false, shownResult: false, broken: false, friendName };
   if (currentScreen() !== "play") openScreen("play", { onLeave: leave });
   useMode(mode);
   setTitle("Online game", `Game code ${code}`);
@@ -50,10 +63,31 @@ export async function openOnlineGame(code, color) {
   const mine = O;
   mine.unwatch = backend.watch(code, (rec) => { if (O === mine) update(rec); });
   mine.stopPresence = backend.setPresence(code, color);
+  mine.ticker = setInterval(() => { if (O === mine) tick(); }, 250);
+}
+
+/** Updates the clocks every quarter second, and records a loss on time when a clock runs out. */
+function tick() {
+  const rec = O.rec;
+  if (!rec?.clock || rec.status !== "playing") return;
+  const now = O.backend.serverNow();
+  const time = clockAt(rec, now);
+  for (const el of document.querySelectorAll("[data-clock]")) {
+    const ms = time[el.dataset.clock];
+    el.textContent = formatClock(ms);
+    el.classList.toggle("is-low", ms < 30000);
+    el.classList.toggle("is-running", turnOf(rec) === el.dataset.clock);
+  }
+  if (outOfTime(rec, now) && !O.claimedTimeout) {
+    O.claimedTimeout = true;
+    board.setMovable(null);
+    O.backend.finish(O.code, { winner: turnOf(rec) === "w" ? "b" : "w", reason: "timeout" }).then((ok) => { if (!ok && O) O.claimedTimeout = false; });
+  }
 }
 
 function leave() {
   if (!O) return;
+  clearInterval(O.ticker);
   O.unwatch?.();
   O.stopPresence?.();
   byId("offer").hidden = true;
@@ -62,7 +96,8 @@ function leave() {
 }
 
 const opponent = () => (O.color === "w" ? "b" : "w");
-const myTurn = () => O.rec?.status === "playing" && O.game.turn() === O.color && !O.game.isGameOver();
+const myTurn = () => O.rec?.status === "playing" && O.game.turn() === O.color && !O.game.isGameOver()
+  && !(O.rec.clock && clockAt(O.rec, O.backend.serverNow())[O.color] <= 0); // not after your flag falls
 
 const mode = {
   getTargets(from) {
@@ -71,6 +106,7 @@ const mode = {
   },
   async onMove(from, to) {
     if (!O || !myTurn()) return;
+    if (O.rec?.clock && clockAt(O.rec, O.backend.serverNow())[O.color] <= 0) return; // flag has fallen
     let promotion;
     if (isPromotionMove(board.pieces, from, to)) {
       promotion = await choosePromotion(O.color);
@@ -172,10 +208,13 @@ function render() {
   const balance = materialBalance(game);
   const plus = (color) => { const v = color === "w" ? balance : -balance; return v > 0 ? v : 0; };
   const away = rec.status === "playing" && rec.presence?.[opp] === false;
-  const oppStatus = rec.status === "waiting" ? "not joined yet" : away ? "offline" : rec.status === "playing" && game.turn() === opp ? '<span class="thinking">thinking</span>' : "";
+  const time = clockAt(rec, O.backend.serverNow());
+  const clock = (color) => (time ? `<span class="bar-clock${time[color] < 30000 ? " is-low" : ""}${rec.status === "playing" && turnOf(rec) === color ? " is-running" : ""}" data-clock="${color}" aria-label="Time left">${formatClock(time[color])}</span>` : "");
+  const oppStatus = rec.status === "waiting" ? "not joined yet" : away ? "offline" : !time && rec.status === "playing" && game.turn() === opp ? '<span class="thinking">thinking</span>' : "";
+  const oppName = O.friendName || friendByPair(rec.friendPair)?.name || "Opponent";
   setBars(
-    { name: rec.players?.[opp] ? "Opponent" : "Waiting…", emoji: rec.players?.[opp] ? avatarOf(rec, opp) : "❔", captured: caps[opp], color: opp, plus: plus(opp), status: oppStatus },
-    { name: "You", emoji: avatarOf(rec, O.color), captured: caps[O.color], color: O.color, plus: plus(O.color), status: O.sending ? "sending…" : "" },
+    { name: rec.players?.[opp] ? escapeHtml(oppName) : "Waiting…", emoji: rec.players?.[opp] ? avatarOf(rec, opp) : "❔", captured: caps[opp], color: opp, plus: plus(opp), status: oppStatus + clock(opp) },
+    { name: "You", emoji: avatarOf(rec, O.color), captured: caps[O.color], color: O.color, plus: plus(O.color), status: (O.sending ? "sending… " : "") + clock(O.color) },
   );
   const history = game.history({ verbose: true });
   const last = history[history.length - 1];
@@ -190,7 +229,10 @@ function render() {
     return;
   }
   if (rec.status === "waiting") {
-    setMessage(`<strong>Waiting for your opponent.</strong> Send them this code, or share a link:<span class="game-code" aria-label="Game code ${O.code.split("").join(" ")}">${O.code}</span>`);
+    const lead = O.friendName
+      ? `<strong>Waiting for ${escapeHtml(O.friendName)}.</strong> They'll see your challenge when they open Chess Quest. You can also send the code:`
+      : "<strong>Waiting for your opponent.</strong> Send them this code, or share a link:";
+    setMessage(`${lead}<span class="game-code" aria-label="Game code ${O.code.split("").join(" ")}">${O.code}</span>${rec.clock ? `<span class="task-meta">⏱ ${rec.clock / 60000} minutes each</span>` : ""}`);
     setControls([
       { label: "📋 Copy code", onClick: copyCode },
       { label: "📤 Share link", kind: "primary", onClick: shareLink },
@@ -217,6 +259,7 @@ function render() {
 function resultControls() {
   const rec = O.rec;
   const buttons = [{ label: "🏠 Home", onClick: () => backToHome() }];
+  if (!(rec.friendPair && friendByPair(rec.friendPair))) buttons.push({ label: "🤝 Add friend", id: "ctl-friend", onClick: addFriend });
   if (rec.rematch && rec.rematch !== O.startedRematch) buttons.push({ label: "🔁 Join rematch", kind: "primary", onClick: () => joinRematch(rec.rematch) });
   else if (!rec.rematch) buttons.push({ label: "🔁 Rematch", kind: "primary", onClick: startRematch });
   setControls(buttons);
@@ -235,6 +278,7 @@ function finished() {
     buzz(won ? "win" : "lose");
     if (won) window.confetti?.({ particleCount: 120, spread: 75, origin: { y: 0.6 }, disableForReducedMotion: true });
     const text = reason === "resigned" ? (won ? "Your opponent resigned." : "You resigned.")
+      : reason === "timeout" ? (won ? "Your opponent ran out of time." : "You ran out of time.")
       : reason === "checkmate" ? (won ? "You won by checkmate!" : "Your opponent won by checkmate. Good game!")
       : reason === "agreed" ? "You agreed to a draw." : OUTCOME_TEXT[reason] || "";
     showResult({
@@ -303,24 +347,66 @@ async function startRematch() {
   const color = opponent(); // swap sides
   const old = O.code;
   try {
-    const code = await O.backend.create({ color, avatar });
+    const code = await O.backend.create({ color, avatar, minutes: (O.rec.clock || 0) / 60000 });
     O.startedRematch = code;
     if (!(await O.backend.setRematch(old, code))) {
       // The other player started one first: join theirs instead.
       const latest = O.rec?.rematch;
       if (latest) { joinRematch(latest); return; }
     }
-    openOnlineGame(code, color);
+    openOnlineGame(code, color, { friendName: O.friendName });
   } catch {
     setMessage("Couldn't start a rematch. Check your internet connection.", "bad");
   }
 }
 
+// ---------- Adding a friend ----------
+
+let pendingFriend = null;
+
+/** Saves this opponent as a friend: both devices end up with the same private friend link. */
+async function addFriend() {
+  if (!O?.rec) return;
+  const mine = O;
+  let id = mine.rec.friendPair;
+  try {
+    if (!id) {
+      const fresh = await mine.backend.createPair();
+      // If the other player added first, use their link instead.
+      id = (await mine.backend.setFriendPair(mine.code, fresh)) ? fresh : mine.rec?.friendPair || fresh;
+    }
+  } catch {
+    setMessage("Couldn't add the friend. Check your internet connection.", "bad");
+    return;
+  }
+  const avatar = Math.max(0, AVATARS.indexOf(avatarOf(mine.rec, opponent())));
+  pendingFriend = { id, avatar };
+  byId("friend-name").value = "";
+  byId("friend-name").placeholder = `Friend ${AVATARS[avatar]}`;
+  byId("addfriend-avatar").textContent = AVATARS[avatar];
+  openOverlay("addfriend-overlay", { focus: "#friend-name" });
+}
+
+byId("save-friend").addEventListener("click", () => {
+  if (!pendingFriend) return;
+  const typed = byId("friend-name").value.replace(/[<>&"'`]/g, "").trim().slice(0, 16);
+  const friend = { ...pendingFriend, name: typed || `Friend ${AVATARS[pendingFriend.avatar]}`, added: Date.now() };
+  saveFriends([...friends().filter((f) => f.id !== friend.id), friend]);
+  pendingFriend = null;
+  closeTopThen(() => {
+    toast(`${friend.name} saved. Challenge them from Play online.`);
+    if (O) render();
+  });
+});
+byId("friend-name").addEventListener("keydown", (e) => { if (e.key === "Enter") byId("save-friend").click(); });
+
+const escapeHtml = (text) => String(text).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+
 async function joinRematch(code) {
   if (!O) return;
   try {
     const { color } = await O.backend.join(code, avatarOf(O.rec, O.color));
-    openOnlineGame(code, color);
+    openOnlineGame(code, color, { friendName: O.friendName || friendByPair(O.rec.friendPair)?.name || null });
   } catch {
     setMessage("Couldn't join the rematch.", "bad");
   }

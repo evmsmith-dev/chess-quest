@@ -13,7 +13,15 @@
 //   drawOffer,                 // "w" or "b" while a draw offer is open
 //   rematch,                   // code of the rematch game, once someone starts one
 //   presence: { w, b },        // true while that player has the game open
+//   clock,                     // optional: minutes per player, in ms (5, 10 or 15 minutes)
+//   time: { w, b },            // with a clock: each player's time left (ms) as of lastMoveAt
+//   lastMoveAt,                // with a clock: when the last move was made (server time, ms)
+//   friendPair,                // optional: the friend link both players can save (see below)
 // }
+//
+// Friend links live at pairs/{id}: { expires, invite: { code, by, at } }. Only the two devices
+// that saved the link know its 16-character id; a challenge writes the new game's code there.
+// Daily puzzle stats live at stats/daily/{YYYY-MM-DD}: { solved, firstTry }, just two counts.
 // database.rules.json enforces the same shape on the Firebase server.
 
 export const AVATARS = ["🦊", "🐼", "🦉", "🐸", "🐯", "🐙", "🦄", "🐢", "🦁", "🐧", "🐨", "🐲"];
@@ -38,11 +46,22 @@ export const GAME_LIFETIME_MS = GAME_DAYS * 24 * 60 * 60 * 1000;
 // No 0/O, 1/I/L: codes are read aloud and typed on phones.
 const CODE_LETTERS = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
 export const CODE_LENGTH = 6;
+export const PAIR_LENGTH = 16;
+export const CLOCK_CHOICES = [0, 5, 10, 15]; // minutes; 0 = no clock
+export const PAIR_LIFETIME_MS = 60 * 24 * 60 * 60 * 1000; // friend links unused for 60 days are removed
+export const INVITE_FRESH_MS = 30 * 60 * 1000; // a challenge shows on Home for 30 minutes
+const TIMEOUT_SLACK_MS = 1500;
 
 export function makeCode(random = Math.random) {
   let code = "";
   for (let i = 0; i < CODE_LENGTH; i++) code += CODE_LETTERS[Math.floor(random() * CODE_LETTERS.length)];
   return code;
+}
+
+export function makePairId(random = Math.random) {
+  let id = "";
+  for (let i = 0; i < PAIR_LENGTH; i++) id += CODE_LETTERS[Math.floor(random() * CODE_LETTERS.length)];
+  return id;
 }
 
 /** Tidies what someone typed: "k7q f2m" → "K7QF2M". Returns null if it can't be a code. */
@@ -51,8 +70,8 @@ export function cleanCode(text) {
   return code.length === CODE_LENGTH && [...code].every((c) => CODE_LETTERS.includes(c)) ? code : null;
 }
 
-export function newGameRecord({ uid, color, avatar, now }) {
-  return {
+export function newGameRecord({ uid, color, avatar, now, minutes = 0 }) {
+  const game = {
     created: now,
     expires: now + GAME_LIFETIME_MS,
     players: { [color]: uid },
@@ -61,7 +80,29 @@ export function newGameRecord({ uid, color, avatar, now }) {
     ply: 0,
     status: "waiting",
   };
+  if (CLOCK_CHOICES.includes(minutes) && minutes > 0) game.clock = minutes * 60 * 1000;
+  return game;
 }
+
+/**
+ * Time left (ms) for each player at server time `now`. Only the player to move is losing time.
+ * Returns null for a game without a clock.
+ */
+export function clockAt(game, now) {
+  if (!game?.clock) return null;
+  const time = { w: game.time?.w ?? game.clock, b: game.time?.b ?? game.clock };
+  if (game.status === "playing" && game.lastMoveAt) {
+    const turn = turnOf(game);
+    time[turn] = Math.max(0, time[turn] - Math.max(0, now - game.lastMoveAt));
+  }
+  return time;
+}
+
+/** True if the player to move has run out of time (with a little slack for the network). */
+export const outOfTime = (game, now) => {
+  const time = clockAt(game, now);
+  return Boolean(time) && game.status === "playing" && time[turnOf(game)] <= 0 && now - game.lastMoveAt >= (game.time?.[turnOf(game)] ?? game.clock) + TIMEOUT_SLACK_MS;
+};
 
 export const moveList = (game) => (game?.moves ? game.moves.split(" ") : []);
 export const colorOf = (game, uid) => (game?.players?.w === uid ? "w" : game?.players?.b === uid ? "b" : null);
@@ -76,36 +117,47 @@ const other = (color) => (color === "w" ? "b" : "w");
  * A move can only end the game as a checkmate won by the player making it, or as a draw.
  * database.rules.json applies the same checks on the server.
  */
-export function withMove(game, uid, ply, uci, result = null) {
+export function withMove(game, uid, ply, uci, result = null, now = Date.now()) {
   if (!game || game.status !== "playing" || game.ply !== ply) return null;
   const mover = turnOf(game);
   if (game.players?.[mover] !== uid) return null;
   if (result && !((result.reason === "checkmate" && result.winner === mover) || (MOVE_DRAWS.includes(result.reason) && result.winner === "draw"))) return null;
   const next = { ...game, moves: game.moves ? `${game.moves} ${uci}` : uci, ply: ply + 1 };
+  if (game.clock) {
+    const left = clockAt(game, now)[mover];
+    if (left <= 0) return null; // out of time: the game is lost on time instead
+    next.time = { ...clockAt(game, now), [mover]: Math.round(left) };
+    next.lastMoveAt = now;
+  }
   delete next.drawOffer;
   if (result) { next.status = "over"; next.result = result; }
   return next;
 }
 
 /** The game after `uid` joins the empty seat. Returns null if they can't. */
-export function withJoin(game, uid, avatar) {
-  if (!game || game.expires < Date.now()) return null;
+export function withJoin(game, uid, avatar, now = Date.now()) {
+  if (!game || game.expires < now) return null;
   if (colorOf(game, uid)) return game; // already in this game
   const seat = !game.players.w ? "w" : !game.players.b ? "b" : null;
   if (!seat || game.status !== "waiting") return null;
-  return { ...game, players: { ...game.players, [seat]: uid }, avatars: { ...game.avatars, [seat]: avatarIndex(avatar) }, status: "playing" };
+  const next = { ...game, players: { ...game.players, [seat]: uid }, avatars: { ...game.avatars, [seat]: avatarIndex(avatar) }, status: "playing" };
+  // The clock starts when the second player arrives.
+  if (game.clock) { next.time = { w: game.clock, b: game.clock }; next.lastMoveAt = now; }
+  return next;
 }
 
 /**
  * The game after it ends without a move: you resign (the other player wins), or you accept the
  * other player's draw offer. Returns null for anything else, or if it's already over.
  */
-export function withResult(game, uid, result) {
+export function withResult(game, uid, result, now = Date.now()) {
   const color = colorOf(game, uid);
   if (!game || game.status !== "playing" || !color) return null;
   const resign = result?.reason === "resigned" && result.winner === other(color);
   const acceptDraw = result?.reason === "agreed" && result.winner === "draw" && game.drawOffer === other(color);
-  if (!resign && !acceptDraw) return null;
+  // Either player may record a loss on time once the player to move has run out.
+  const timeout = result?.reason === "timeout" && result.winner === other(turnOf(game)) && outOfTime(game, now);
+  if (!resign && !acceptDraw && !timeout) return null;
   const next = { ...game, status: "over", result };
   delete next.drawOffer;
   return next;

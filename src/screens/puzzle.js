@@ -8,6 +8,34 @@ import { recordDaily, streakInfo } from "../lib/progress.js";
 import { dateKey, hashString } from "../lib/random.js";
 import { play } from "../ui/audio.js";
 import { buzz } from "../ui/haptics.js";
+import { getBackend, onlineConfigured } from "../online/backend.js";
+
+/**
+ * Adds this solve to today's anonymous counts (once per device per day) and returns the counts:
+ * { solved, firstTry } or null if they can't be fetched (offline, or online play not set up).
+ */
+export async function dailyStats(day, firstTry, { record = true } = {}) {
+  if (!onlineConfigured()) return null;
+  try {
+    const backend = await getBackend();
+    if (!backend) return null;
+    if (record && readJson("statsSent", null) !== day) {
+      if (await backend.recordDaily(day, firstTry)) writeJson("statsSent", day);
+    }
+    return await backend.readDaily(day);
+  } catch {
+    return null;
+  }
+}
+
+/** "68% of players solved it on the first try (124 players)", or "" with too few to say. */
+export function statsLine(stats) {
+  if (!stats?.solved) return "";
+  const pct = Math.round((100 * (stats.firstTry || 0)) / stats.solved);
+  if (stats.solved === 1) return "You're the first to solve it today!";
+  if (stats.solved === 2) return "You're one of the first two to solve it today!";
+  return `${pct}% of players solved it on the first try (${stats.solved} players).`;
+}
 
 export const SETS = [
   { id: "mate1", title: "Mate in 1", tier: "Beginner", emoji: "♛", goal: "Find checkmate in one move." },
@@ -213,6 +241,12 @@ function solved(move) {
     writeJson("daily", record);
     const { streak } = dailyStreak(P.daily);
     window.confetti?.({ particleCount: 100, spread: 70, origin: { y: 0.6 }, disableForReducedMotion: true });
+    // Today's anonymous stats arrive a moment later, if online play is available.
+    dailyStats(P.daily, clean).then((stats) => {
+      const line = statsLine(stats);
+      const el = document.getElementById("result-text");
+      if (line && el && !document.getElementById("result-overlay").hidden) el.textContent = `${el.textContent} ${line}`;
+    });
     showResult({
       emoji: "🔥",
       title: "Daily puzzle solved!",

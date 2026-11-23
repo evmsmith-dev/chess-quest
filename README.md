@@ -10,7 +10,7 @@ Learn chess, solve puzzles and play the computer, in an app you install on a pho
 
   Wrong moves get an explanation ("The pawn on d5 is protected by the pawn on e6…"). Lessons earn up to 3 stars, and every lesson is open, so experienced players can skip ahead.
 - **🎯 Challenges:** puzzles with one best answer, in five sets. Beginner sets are *Mate in 1* and *Free pieces*. Intermediate sets are *Mate in 2*, *Forks* and *Win material*. A hint first shows which piece to move, then where to move it.
-- **🔥 Daily puzzle:** the same puzzle for everyone each day, with a streak. Every 7 days in a row earns a 🧊 freeze (up to 2), and a freeze saves the streak on a missed day.
+- **🔥 Daily puzzle:** the same puzzle for everyone each day, with a streak. Every 7 days in a row earns a 🧊 freeze (up to 2), and a freeze saves the streak on a missed day. After solving, you see how many players solved it on the first try that day (two anonymous counts per day, when online play is set up).
 - **🤖 Play the computer:** full games against a **Beginner** or **Intermediate** bot, as White, Black or a random color.
   - All the rules apply: castling, en passant, promotion, and draws by stalemate, threefold repetition, the 50-move rule and insufficient material.
   - Optional help: a **coach** that warns before you leave a piece unprotected, **take-backs**, and **hints**. All are on by default for Beginner and off for Intermediate.
@@ -23,6 +23,8 @@ Learn chess, solve puzzles and play the computer, in an app you install on a pho
 - **🌐 Play online:** play someone on another phone or tablet. One player creates a game and shares a 6-character code or a link, and the other joins with it.
   - Moves, resign, draw offers and rematches (which swap sides) work across both devices. If the other player goes offline, you see it, and the game waits for them.
   - Leaving and coming back continues the game.
+  - **Clocks:** choose No clock, 5, 10 or 15 minutes per player. Only the player to move loses time, clocks use the server's time (so a phone's wrong clock doesn't matter), and running out loses the game.
+  - **Friends:** after a game, **Add friend** saves a private link that only your two devices know, under a nickname that stays on your device. Saved friends appear in Play online with **Challenge**. The friend sees "Sam challenged you!" on Home the next time they open the app (challenges last 30 minutes). Friend links unused for 60 days are removed.
   - **No names and no chat:** players pick an emoji avatar. Only the moves, the avatars and a random player number are stored, and games are deleted after 7 days.
   - Runs on Firebase's free plan, which needs a one-time setup: see [docs/firebase-setup.md](docs/firebase-setup.md). Until then the card says online play isn't set up.
 - **📖 Rulebook:** every rule with an example board, searchable.

@@ -97,7 +97,7 @@ which deletes anonymous player numbers 30 days after they were made. It needs th
   "Couldn't connect" until someone leaves.
 - **Clean-up:** games are deleted 7 days after they're created. The app tidies old ones whenever
   someone opens online play.
-- **Changing the rules later:** paste the new `database.rules.json` into the **Rules** tab again.
+- **Changing the rules later:** paste the new `database.rules.json` into the **Rules** tab again. Do it whenever an update says the rules changed: new features (clocks, friends, daily stats) are refused by older rules until you do.
 - **Trust:** both phones check every move with the same rules engine, so a tampered app can't
   play an illegal move. A game result is trusted from the players' phones, which is fine for
   games between friends but not for prizes or rankings.

@@ -2,7 +2,7 @@
 // announced over a BroadcastChannel, so two tabs in one browser can play each other exactly like
 // two phones would through Firebase. Each tab is its own player (its id is in sessionStorage).
 // It applies the same checks as the server rules, via the shared helpers in common.js.
-import { makeCode, newGameRecord, withMove, withJoin, withResult, colorOf } from "./common.js";
+import { makeCode, makePairId, newGameRecord, withMove, withJoin, withResult, colorOf, PAIR_LIFETIME_MS } from "./common.js";
 
 const STORE = "chessQuest_localServer";
 const channel = typeof BroadcastChannel !== "undefined" ? new BroadcastChannel("chess-quest-online") : null;
@@ -46,10 +46,11 @@ export async function createLocalBackend() {
   return {
     kind: "local",
     uid,
-    async create({ color, avatar }) {
+    serverNow: () => Date.now(),
+    async create({ color, avatar, minutes = 0 }) {
       let code;
       do code = makeCode(); while (read(code));
-      write(code, newGameRecord({ uid, color, avatar, now: Date.now() }));
+      write(code, newGameRecord({ uid, color, avatar, now: Date.now(), minutes }));
       return code;
     },
     async join(code, avatar) {
@@ -80,6 +81,28 @@ export async function createLocalBackend() {
       transact(code, (g) => g && { ...g, presence: { ...g.presence, [color]: true } });
       return () => transact(code, (g) => g && { ...g, presence: { ...g.presence, [color]: false } });
     },
+    async createPair() {
+      const id = makePairId();
+      write(`pair:${id}`, { expires: Date.now() + PAIR_LIFETIME_MS });
+      return id;
+    },
+    setFriendPair: (code, id) => transact(code, (g) => (g && !g.friendPair && colorOf(g, uid) ? { ...g, friendPair: id } : null)),
+    async invite(id, code) {
+      write(`pair:${id}`, { expires: Date.now() + PAIR_LIFETIME_MS, invite: { code, by: uid, at: Date.now() } });
+      return true;
+    },
+    clearInvite: (id) => transact(`pair:${id}`, (p) => (p ? { expires: p.expires } : null)),
+    watchPair(id, cb) {
+      const key = `pair:${id}`;
+      if (!listeners.has(key)) listeners.set(key, new Set());
+      listeners.get(key).add(cb);
+      setTimeout(() => cb(read(key)), 0);
+      return () => listeners.get(key)?.delete(cb);
+    },
+    async recordDaily(day, firstTry) {
+      return transact(`stats:${day}`, (st) => ({ solved: (st?.solved || 0) + 1, firstTry: (st?.firstTry || 0) + (firstTry ? 1 : 0) }));
+    },
+    readDaily: async (day) => read(`stats:${day}`),
     async sweep() {
       const all = readAll();
       for (const [code, g] of Object.entries(all)) if (g.expires < Date.now()) write(code, null);

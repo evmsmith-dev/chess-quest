@@ -39,6 +39,14 @@
     <button type="button" id="continue-btn" class="continue-card" hidden></button>
     <button type="button" id="continue-friend-btn" class="continue-card" hidden></button>
     <button type="button" id="continue-online-btn" class="continue-card" hidden></button>
+    <section id="invite-card" class="invite-card" role="status" aria-live="polite" hidden>
+      <span id="invite-avatar" class="invite-avatar" aria-hidden="true"></span>
+      <p id="invite-text" class="invite-text"></p>
+      <div class="invite-actions">
+        <button type="button" id="invite-join" class="primary">Join</button>
+        <button type="button" id="invite-later" class="link-button">Not now</button>
+      </div>
+    </section>
 
     <section class="daily-card" aria-labelledby="daily-title">
       <div class="daily-head">
@@ -257,6 +265,10 @@
       </div>
       <div id="online-setup">
         <p class="overlay-note">Play someone on another device: one of you creates a game and sends the code. No names, no chat.</p>
+        <div id="friends-section" hidden>
+          <p class="setting-label">Your friends</p>
+          <ul id="friend-list" class="friend-list"></ul>
+        </div>
         <p class="setting-label">Your avatar</p>
         <div id="avatar-options" class="avatar-options" role="group" aria-label="Your avatar"></div>
         <p class="setting-label">Start a new game</p>
@@ -264,6 +276,13 @@
           <button type="button" data-online-color="w">White</button>
           <button type="button" data-online-color="random">Random</button>
           <button type="button" data-online-color="b">Black</button>
+        </div>
+        <p class="setting-label">Clock</p>
+        <div id="online-clock" class="segmented" role="group" aria-label="Time for each player">
+          <button type="button" data-clock-minutes="0">No clock</button>
+          <button type="button" data-clock-minutes="5">5 min</button>
+          <button type="button" data-clock-minutes="10">10 min</button>
+          <button type="button" data-clock-minutes="15">15 min</button>
         </div>
         <button type="button" id="online-create" class="primary wide-button">Create a game</button>
         <p class="setting-label">Or join with a code</p>
@@ -275,9 +294,21 @@
         <p id="online-error" class="form-error" role="alert" hidden></p>
         <details class="privacy-details">
           <summary>What's stored?</summary>
-          <p>Only what's needed to play: the moves, each player's avatar, and a random player number made by the app (not linked to any account, email or name). Games are deleted after 7 days. Nothing is used for ads or tracking. To keep out fake apps and bots, Google's reCAPTCHA checks in the background that requests come from the real Chess Quest app; it never shows a puzzle.</p>
+          <p>Only what's needed to play: the moves, each player's avatar, the clock times, and a random player number made by the app (not linked to any account, email or name). A saved friend is a private link only your two devices know; the nickname you give a friend stays on this device. The daily puzzle adds one to two anonymous counts (solved, and solved first try). Games are deleted after 7 days. Nothing is used for ads or tracking. To keep out fake apps and bots, Google's reCAPTCHA checks in the background that requests come from the real Chess Quest app; it never shows a puzzle.</p>
         </details>
       </div>
+    </div>
+  </div>
+
+  <div id="addfriend-overlay" class="overlay" role="dialog" aria-modal="true" aria-labelledby="addfriend-heading" hidden>
+    <div class="overlay-backdrop" data-close></div>
+    <div class="overlay-card">
+      <button type="button" class="overlay-close" data-close aria-label="Close">✕</button>
+      <h2 id="addfriend-heading"><span id="addfriend-avatar" aria-hidden="true"></span> Add friend</h2>
+      <p class="overlay-note">Give them a nickname so you know who's who. It stays on this device: nobody else sees it.</p>
+      <label class="visually-hidden" for="friend-name">Nickname</label>
+      <input type="text" id="friend-name" class="text-input" maxlength="16" autocomplete="off" enterkeyhint="done">
+      <div class="result-actions"><button type="button" id="save-friend" class="primary">Save friend</button></div>
     </div>
   </div>
 

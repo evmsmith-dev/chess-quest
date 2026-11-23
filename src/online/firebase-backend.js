@@ -8,7 +8,7 @@ import {
   getDatabase, ref, get, set, remove, onValue, runTransaction, onDisconnect, serverTimestamp,
   query, orderByChild, endAt, limitToFirst,
 } from "firebase/database";
-import { makeCode, newGameRecord, withMove, withJoin, withResult, colorOf } from "./common.js";
+import { makeCode, makePairId, newGameRecord, withMove, withJoin, withResult, colorOf, PAIR_LIFETIME_MS } from "./common.js";
 
 export async function createFirebaseBackend(config, appCheckSiteKey = null, appCheckProvider = "enterprise") {
   const app = initializeApp(config);
@@ -32,6 +32,12 @@ export async function createFirebaseBackend(config, appCheckSiteKey = null, appC
   });
   const uid = user.uid;
   const gameRef = (code) => ref(db, `games/${code}`);
+  const pairRef = (id) => ref(db, `pairs/${id}`);
+  const secureRandom = () => crypto.getRandomValues(new Uint32Array(1))[0] / 2 ** 32;
+  // Clocks use the server's time, so a phone with its clock set wrong can't gain or lose time.
+  let offset = 0;
+  onValue(ref(db, ".info/serverTimeOffset"), (snap) => { offset = snap.val() || 0; });
+  const serverNow = () => Date.now() + offset;
 
   /** Runs `change(game)` as a transaction; `change` returns null to leave the game alone. */
   async function transact(code, change) {
@@ -52,10 +58,11 @@ export async function createFirebaseBackend(config, appCheckSiteKey = null, appC
   return {
     kind: "firebase",
     uid,
-    async create({ color, avatar }) {
+    serverNow,
+    async create({ color, avatar, minutes = 0 }) {
       for (let attempt = 0; attempt < 5; attempt++) {
-        const code = makeCode(() => crypto.getRandomValues(new Uint32Array(1))[0] / 2 ** 32);
-        const record = { ...newGameRecord({ uid, color, avatar, now: Date.now() }), created: serverTimestamp() };
+        const code = makeCode(secureRandom);
+        const record = { ...newGameRecord({ uid, color, avatar, now: serverNow(), minutes }), created: serverTimestamp() };
         const outcome = await runTransaction(gameRef(code), (game) => (game === null ? record : undefined));
         if (outcome.committed) return code;
       }
@@ -66,15 +73,15 @@ export async function createFirebaseBackend(config, appCheckSiteKey = null, appC
       const game = snapshot.val();
       if (!game || game.expires < Date.now()) throw new Error("not-found");
       if (colorOf(game, uid)) return { color: colorOf(game, uid) };
-      const ok = await transact(code, (g) => { const next = withJoin(g, uid, avatar); return next === g ? null : next; });
+      const ok = await transact(code, (g) => { const next = withJoin(g, uid, avatar, serverNow()); return next === g ? null : next; });
       if (!ok) throw new Error("full");
       return { color: colorOf((await get(gameRef(code))).val(), uid) };
     },
     watch(code, cb) {
       return onValue(gameRef(code), (snapshot) => cb(snapshot.val()), () => cb(null));
     },
-    move: (code, ply, uci, result) => transact(code, (g) => withMove(g, uid, ply, uci, result)),
-    finish: (code, result) => transact(code, (g) => withResult(g, uid, result)),
+    move: (code, ply, uci, result) => transact(code, (g) => withMove(g, uid, ply, uci, result, serverNow())),
+    finish: (code, result) => transact(code, (g) => withResult(g, uid, result, serverNow())),
     async offerDraw(code, color) {
       try {
         if (color) await set(ref(db, `games/${code}/drawOffer`), color);
@@ -95,12 +102,46 @@ export async function createFirebaseBackend(config, appCheckSiteKey = null, appC
       });
       return () => { stop(); set(mine, false).catch(() => {}); };
     },
+    async createPair() {
+      for (let attempt = 0; attempt < 5; attempt++) {
+        const id = makePairId(secureRandom);
+        const outcome = await runTransaction(pairRef(id), (p) => (p === null ? { expires: serverNow() + PAIR_LIFETIME_MS } : undefined));
+        if (outcome.committed) return id;
+      }
+      throw new Error("busy");
+    },
+    async setFriendPair(code, id) {
+      try { await set(ref(db, `games/${code}/friendPair`), id); return true; } catch { return false; }
+    },
+    async invite(id, code) {
+      try {
+        await set(pairRef(id), { expires: serverNow() + PAIR_LIFETIME_MS, invite: { code, by: uid, at: serverNow() } });
+        return true;
+      } catch { return false; }
+    },
+    async clearInvite(id) {
+      try { await remove(ref(db, `pairs/${id}/invite`)); return true; } catch { return false; }
+    },
+    watchPair(id, cb) {
+      return onValue(pairRef(id), (snap) => cb(snap.val()), () => cb(null));
+    },
+    async recordDaily(day, firstTry) {
+      try {
+        const outcome = await runTransaction(ref(db, `stats/daily/${day}`), (st) => ({ solved: (st?.solved || 0) + 1, firstTry: (st?.firstTry || 0) + (firstTry ? 1 : 0) }));
+        return outcome.committed;
+      } catch { return false; }
+    },
+    async readDaily(day) {
+      try { return (await get(ref(db, `stats/daily/${day}`))).val(); } catch { return null; }
+    },
     async sweep() {
       // Delete games past their 7 days (the rules allow anyone to delete an expired game).
       try {
-        const old = await get(query(ref(db, "games"), orderByChild("expires"), endAt(Date.now() - 5 * 60 * 1000), limitToFirst(25)));
         const deletions = [];
-        old.forEach((child) => { deletions.push(remove(child.ref).catch(() => {})); });
+        for (const path of ["games", "pairs"]) {
+          const old = await get(query(ref(db, path), orderByChild("expires"), endAt(serverNow() - 5 * 60 * 1000), limitToFirst(25)));
+          old.forEach((child) => { deletions.push(remove(child.ref).catch(() => {})); });
+        }
         await Promise.all(deletions);
       } catch {
         // Not allowed or offline: try again another time.

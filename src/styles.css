@@ -379,6 +379,21 @@ html.no-coords .coord { display: none; }
 .toggle + .toggle { border-top: 1px solid color-mix(in srgb, var(--muted) 20%, transparent); }
 .toggle small { display: block; font-weight: 400; font-size: 0.82rem; color: var(--muted); }
 .toggle input[type="checkbox"] { width: 22px; height: 22px; accent-color: var(--primary); flex: none; }
+.bar-clock { margin-left: 8px; font-variant-numeric: tabular-nums; font-weight: 700; padding: 2px 8px; border-radius: 8px; background: var(--card); color: var(--muted); }
+.bar-clock.is-running { background: var(--primary); color: #fff; }
+.bar-clock.is-low.is-running { background: var(--danger); }
+.invite-card { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; margin: 0 0 14px; padding: 12px 16px; border-radius: 18px; background: var(--card); border: 2px solid var(--primary); box-shadow: var(--shadow); }
+.invite-avatar { font-size: 2rem; line-height: 1; }
+.invite-text { flex: 1 1 160px; margin: 0; font-weight: 600; line-height: 1.35; }
+.invite-actions { display: flex; align-items: center; gap: 4px; margin-left: auto; }
+.invite-actions .primary { border: 0; border-radius: 999px; padding: 8px 20px; min-height: 44px; font-weight: 700; }
+.friend-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.friend-list li { display: flex; align-items: center; gap: 10px; background: var(--bg); border-radius: 12px; padding: 6px 6px 6px 12px; }
+.friend-list .friend-avatar { font-size: 1.5rem; }
+.friend-list .friend-name { flex: 1; min-width: 0; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.friend-list .primary { border: 0; border-radius: 999px; padding: 6px 14px; min-height: 40px; font-weight: 700; }
+.friend-list .friend-remove { border: 0; background: none; width: 40px; height: 40px; border-radius: 50%; color: var(--muted); font-weight: 700; }
+.text-input { width: 100%; min-height: 48px; border-radius: 12px; border: 2px solid var(--border); background: var(--bg); color: var(--text); padding: 8px 12px; font: inherit; font-size: 1.05rem; }
 .avatar-options { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
 .avatar-options button { min-height: 44px; border: 2px solid transparent; border-radius: 12px; background: var(--bg); font-size: 1.5rem; }
 .avatar-options button[aria-pressed="true"] { border-color: var(--primary); background: var(--primary-soft); }

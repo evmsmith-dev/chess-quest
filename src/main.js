@@ -15,9 +15,10 @@ import { warmUp } from "./chess/bot.js";
 import { miniBoard } from "./screens/boardscreen.js";
 import { newGame, newFriendGame, resumeGame, savedGame, savedFriendGame, setGameHooks, setNewGameOpener } from "./screens/game.js";
 import { startLesson, lessonProgress, nextLesson, setLessonHooks } from "./screens/lesson.js";
-import { openOnlineGame, savedOnlineGame, setOnlineHooks } from "./screens/online.js";
+import { openOnlineGame, savedOnlineGame, setOnlineHooks, friends, saveFriends, toast } from "./screens/online.js";
 import { getBackend, onlineConfigured } from "./online/backend.js";
-import { AVATARS, cleanCode } from "./online/common.js";
+import { AVATARS, cleanCode, INVITE_FRESH_MS } from "./online/common.js";
+import { dailyStats, statsLine } from "./screens/puzzle.js";
 import { SETS, loadPuzzles, puzzleList, solvedPuzzles, startSet, startPuzzle, dailyPuzzle, dailyRecord, dailyStreak, setPuzzleHooks } from "./screens/puzzle.js";
 
 const byId = (id) => document.getElementById(id);
@@ -54,6 +55,13 @@ function renderHome() {
   const { streak, freezes } = dailyStreak(today);
   const set = daily && SETS.find((s) => s.id === daily.kind);
   byId("daily-status").textContent = !daily ? "Puzzles are loading…" : done ? `Solved! ${done.mistakes ? "" : "First try. "}A new puzzle arrives tomorrow.` : `Today: ${set.title}. ${set.goal}`;
+  if (done && onlineConfigured()) {
+    // Add today's anonymous stats once they arrive (without counting this device again).
+    dailyStats(today, false, { record: false }).then((stats) => {
+      const line = statsLine(stats);
+      if (line && dateKey() === today) byId("daily-status").textContent = `Solved! ${line}`;
+    });
+  }
   byId("daily-btn").textContent = done ? "Play again" : "Solve";
   byId("daily-btn").disabled = !daily;
   byId("daily-streak").textContent = streak ? `🔥 ${streak}-day streak${freezes ? ` · 🧊 ${freezes}` : ""}` : "Solve daily to build a streak";
@@ -236,13 +244,50 @@ byId("start-friend-btn").addEventListener("click", () => {
 // ---------- Online ----------
 
 let onlineColor = readJson("onlineColor", "random");
+let onlineMinutes = readJson("onlineClock", 0);
 let onlineAvatar = readJson("onlineAvatar", AVATARS[0]);
 byId("avatar-options").innerHTML = AVATARS.map((a) => `<button type="button" data-avatar="${a}" aria-label="Avatar ${a}">${a}</button>`).join("");
 
 function renderOnline() {
   for (const b of document.querySelectorAll("[data-avatar]")) b.setAttribute("aria-pressed", String(b.dataset.avatar === onlineAvatar));
   for (const b of document.querySelectorAll("[data-online-color]")) b.setAttribute("aria-pressed", String(b.dataset.onlineColor === onlineColor));
+  for (const b of document.querySelectorAll("[data-clock-minutes]")) b.setAttribute("aria-pressed", String(Number(b.dataset.clockMinutes) === onlineMinutes));
+  const list = friends();
+  byId("friends-section").hidden = !list.length;
+  byId("friend-list").innerHTML = list.map((f) => `<li><span class="friend-avatar" aria-hidden="true">${AVATARS[f.avatar] || "🙂"}</span><span class="friend-name">${escapeHtml(f.name)}</span><button type="button" class="primary" data-challenge="${f.id}">Challenge</button><button type="button" class="friend-remove" data-unfriend="${f.id}" aria-label="Remove ${escapeHtml(f.name)}">✕</button></li>`).join("");
 }
+byId("online-clock").addEventListener("click", (e) => {
+  const minutes = e.target.closest("[data-clock-minutes]")?.dataset.clockMinutes;
+  if (minutes === undefined) return;
+  onlineMinutes = Number(minutes);
+  writeJson("onlineClock", onlineMinutes);
+  renderOnline();
+});
+byId("friend-list").addEventListener("click", async (e) => {
+  const remove = e.target.closest("[data-unfriend]")?.dataset.unfriend;
+  if (remove) {
+    const gone = friends().find((f) => f.id === remove);
+    saveFriends(friends().filter((f) => f.id !== remove));
+    renderOnline();
+    if (gone) toast(`${gone.name} removed`);
+    return;
+  }
+  const id = e.target.closest("[data-challenge]")?.dataset.challenge;
+  const friend = id && friends().find((f) => f.id === id);
+  if (!friend) return;
+  onlineError("");
+  setOnlineBusy(true);
+  try {
+    const backend = await getBackend();
+    const color = onlineColor === "random" ? (Math.random() < 0.5 ? "w" : "b") : onlineColor;
+    const code = await backend.create({ color, avatar: onlineAvatar, minutes: onlineMinutes });
+    if (!(await backend.invite(friend.id, code))) throw new Error("invite");
+    closeTopThen(() => openOnlineGame(code, color, { friendName: friend.name }));
+  } catch {
+    onlineError(CONNECT_ERROR);
+    setOnlineBusy(false);
+  }
+});
 function onlineError(text) {
   byId("online-error").textContent = text || "";
   byId("online-error").hidden = !text;
@@ -250,7 +295,80 @@ function onlineError(text) {
 function setOnlineBusy(busy) {
   byId("online-create").disabled = busy;
   byId("online-join").disabled = busy;
+  for (const b of document.querySelectorAll("[data-challenge]")) b.disabled = busy;
 }
+
+// ---------- Challenges from friends (shown on Home) ----------
+// With friends saved, the app listens to their private friend links; a fresh challenge (less
+// than 30 minutes old, not from this device) shows as a card on Home.
+const invites = new Map(); // friend link id → its latest value
+const watched = new Map(); // friend link id → stop function
+let inviteBackend = null;
+
+async function watchFriends() {
+  const list = friends();
+  for (const [id, stop] of watched) if (!list.some((f) => f.id === id)) { stop(); watched.delete(id); invites.delete(id); }
+  if (!list.length || !onlineConfigured()) { renderInvite(); return; }
+  try {
+    inviteBackend = await getBackend();
+  } catch {
+    return; // offline: try again when the app comes back
+  }
+  for (const f of list) {
+    if (!watched.has(f.id)) watched.set(f.id, inviteBackend.watchPair(f.id, (value) => { invites.set(f.id, value); renderInvite(); }));
+  }
+}
+
+function currentInvite() {
+  if (!inviteBackend) return null;
+  const dismissed = readJson("dismissedInvites", []);
+  const now = inviteBackend.serverNow();
+  let best = null;
+  for (const [id, value] of invites) {
+    const inv = value?.invite;
+    const friend = friends().find((f) => f.id === id);
+    if (!inv || !friend || inv.by === inviteBackend.uid || now - inv.at > INVITE_FRESH_MS || dismissed.includes(inv.code)) continue;
+    if (savedOnlineGame()?.code === inv.code) continue;
+    if (!best || inv.at > best.at) best = { ...inv, id, friend };
+  }
+  return best;
+}
+
+function renderInvite() {
+  const inv = currentInvite();
+  byId("invite-card").hidden = !inv;
+  if (!inv) return;
+  byId("invite-avatar").textContent = AVATARS[inv.friend.avatar] || "🙂";
+  byId("invite-text").textContent = `${inv.friend.name} challenged you to a game!`;
+  byId("invite-card").dataset.code = inv.code;
+}
+
+function dismissInvite(code) {
+  writeJson("dismissedInvites", [code, ...readJson("dismissedInvites", [])].slice(0, 20));
+  renderInvite();
+}
+
+byId("invite-join").addEventListener("click", async () => {
+  const inv = currentInvite();
+  if (!inv) return;
+  byId("invite-join").disabled = true;
+  try {
+    const { color } = await inviteBackend.join(inv.code, onlineAvatar);
+    inviteBackend.clearInvite(inv.id);
+    dismissInvite(inv.code);
+    await openOnlineGame(inv.code, color, { friendName: inv.friend.name });
+  } catch {
+    dismissInvite(inv.code);
+    toast("That challenge isn't available any more.");
+  } finally {
+    byId("invite-join").disabled = false;
+  }
+});
+byId("invite-later").addEventListener("click", () => {
+  const code = byId("invite-card").dataset.code;
+  if (code) dismissInvite(code);
+});
+setInterval(renderInvite, 30000); // challenges expire after 30 minutes
 
 function openOnline(code = "") {
   const ready = onlineConfigured();
@@ -288,7 +406,7 @@ byId("online-create").addEventListener("click", async () => {
   try {
     const backend = await getBackend();
     const color = onlineColor === "random" ? (Math.random() < 0.5 ? "w" : "b") : onlineColor;
-    const code = await backend.create({ color, avatar: onlineAvatar });
+    const code = await backend.create({ color, avatar: onlineAvatar, minutes: onlineMinutes });
     closeTopThen(() => openOnlineGame(code, color));
   } catch {
     onlineError(CONNECT_ERROR);
@@ -382,7 +500,7 @@ setGameHooks({ onChange: () => {}, onFinish: () => {} });
 setNewGameOpener(openNewGame);
 setLessonHooks({ onChange: () => {} });
 setPuzzleHooks({ onChange: () => {} });
-setOnlineHooks({ onChange: () => {} });
+setOnlineHooks({ onChange: () => { watchFriends(); } });
 
 // Browsers need a tap before sound can play.
 addEventListener("pointerdown", unlockAudio, { capture: true });
@@ -390,7 +508,7 @@ addEventListener("keydown", unlockAudio, { capture: true });
 
 // The daily puzzle changes at midnight; refresh Home when the app comes back.
 document.addEventListener("visibilitychange", () => {
-  if (document.visibilityState === "visible" && !byId("home").hidden) renderHome();
+  if (document.visibilityState === "visible" && !byId("home").hidden) { renderHome(); watchFriends(); }
 });
 
 async function start() {
@@ -404,6 +522,7 @@ async function start() {
   await Promise.all([loadPieceSprite(), loadPuzzles()]);
   renderHome();
   warmUp();
+  watchFriends();
   refreshInstall();
   document.body.classList.add("is-ready");
   // A join link (…?join=K7QF2M) opens the online pop-up with the code filled in.
