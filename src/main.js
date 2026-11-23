@@ -472,6 +472,29 @@ onSettingsChange(applySettings);
 // ---------- Wiring ----------
 
 byId("settings-btn").addEventListener("click", () => openOverlay("settings-overlay"));
+// Share the app: the phone's share sheet with a link to the website, where people can open it
+// and install it. Without a share sheet (most computers), the link is copied instead.
+const APP_URL = new URL("./", location.href).href;
+byId("share-app-btn").addEventListener("click", async () => {
+  const text = "Learn chess, solve puzzles and play friends with Chess Quest. Free, and it works offline.";
+  if (navigator.share) {
+    try {
+      await navigator.share({ title: "Chess Quest", text, url: APP_URL });
+      return;
+    } catch (error) {
+      if (error?.name === "AbortError") return; // closed the share sheet
+    }
+  }
+  try {
+    await navigator.clipboard.writeText(APP_URL);
+    toast("Link copied: paste it anywhere to share");
+  } catch {
+    toast(APP_URL);
+  }
+});
+
+// Privacy opens on top of Settings; closing it returns to Settings.
+byId("privacy-btn").addEventListener("click", () => openOverlay("privacy-overlay"));
 byId("continue-btn").addEventListener("click", () => resumeGame("bot"));
 byId("continue-friend-btn").addEventListener("click", () => resumeGame("friend"));
 byId("friend-btn").addEventListener("click", () => openFriendGame());

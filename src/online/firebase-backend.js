@@ -5,10 +5,10 @@ import { initializeApp } from "firebase/app";
 import { initializeAppCheck, ReCaptchaEnterpriseProvider, ReCaptchaV3Provider } from "firebase/app-check";
 import { getAuth, signInAnonymously, onAuthStateChanged } from "firebase/auth";
 import {
-  getDatabase, ref, get, set, remove, onValue, runTransaction, onDisconnect, serverTimestamp,
+  getDatabase, ref, get, set, update, remove, onValue, runTransaction, onDisconnect, serverTimestamp,
   query, orderByChild, endAt, limitToFirst,
 } from "firebase/database";
-import { makeCode, makePairId, newGameRecord, withMove, withJoin, withResult, colorOf, PAIR_LIFETIME_MS } from "./common.js";
+import { makeCode, makePairId, makeSeatKey, seatKey, rememberSeatKey, newGameRecord, withMove, withJoin, withResult, colorOf, PAIR_LIFETIME_MS, GAME_LIFETIME_MS } from "./common.js";
 
 export async function createFirebaseBackend(config, appCheckSiteKey = null, appCheckProvider = "enterprise") {
   const app = initializeApp(config);
@@ -39,6 +39,21 @@ export async function createFirebaseBackend(config, appCheckSiteKey = null, appC
   onValue(ref(db, ".info/serverTimeOffset"), (snap) => { offset = snap.val() || 0; });
   const serverNow = () => Date.now() + offset;
 
+  /** Stores this device's private seat key for `color` in game `code` (once per seat). */
+  async function saveSeat(code, color) {
+    if (!color || seatKey(code, color)) return;
+    const key = makeSeatKey();
+    try {
+      await update(ref(db), {
+        [`seats/${code}/${color}/${key}`]: uid,
+        [`seats/${code}/expires`]: serverNow() + GAME_LIFETIME_MS,
+      });
+      rememberSeatKey(code, color, key);
+    } catch {
+      // Not critical: the game works without it; only a later reclaim would be impossible.
+    }
+  }
+
   /** Runs `change(game)` as a transaction; `change` returns null to leave the game alone. */
   async function transact(code, change) {
     try {
@@ -64,7 +79,7 @@ export async function createFirebaseBackend(config, appCheckSiteKey = null, appC
         const code = makeCode(secureRandom);
         const record = { ...newGameRecord({ uid, color, avatar, now: serverNow(), minutes }), created: serverTimestamp() };
         const outcome = await runTransaction(gameRef(code), (game) => (game === null ? record : undefined));
-        if (outcome.committed) return code;
+        if (outcome.committed) { await saveSeat(code, color); return code; }
       }
       throw new Error("busy");
     },
@@ -75,10 +90,33 @@ export async function createFirebaseBackend(config, appCheckSiteKey = null, appC
       if (colorOf(game, uid)) return { color: colorOf(game, uid) };
       const ok = await transact(code, (g) => { const next = withJoin(g, uid, avatar, serverNow()); return next === g ? null : next; });
       if (!ok) throw new Error("full");
-      return { color: colorOf((await get(gameRef(code))).val(), uid) };
+      const color = colorOf((await get(gameRef(code))).val(), uid);
+      await saveSeat(code, color);
+      return { color };
     },
     watch(code, cb) {
       return onValue(gameRef(code), (snapshot) => cb(snapshot.val()), () => cb(null));
+    },
+    /**
+     * Takes back `color`'s seat after this device got a new player number: one write that puts
+     * the new number in the game, uses up the old seat key and stores a fresh one.
+     */
+    async reclaim(code, color) {
+      const old = seatKey(code, color);
+      if (!old) return false;
+      const fresh = makeSeatKey();
+      try {
+        await update(ref(db), {
+          [`games/${code}/players/${color}`]: uid,
+          [`games/${code}/reclaimWith`]: old,
+          [`seats/${code}/${color}/${old}`]: null,
+          [`seats/${code}/${color}/${fresh}`]: uid,
+        });
+        rememberSeatKey(code, color, fresh);
+        return true;
+      } catch {
+        return false;
+      }
     },
     /** Deletes a game nobody has joined yet. False if someone joined first (or it's gone). */
     async cancel(code) {
@@ -150,7 +188,7 @@ export async function createFirebaseBackend(config, appCheckSiteKey = null, appC
       // Delete games past their 7 days (the rules allow anyone to delete an expired game).
       try {
         const deletions = [];
-        for (const path of ["games", "pairs"]) {
+        for (const path of ["games", "pairs", "seats"]) {
           const old = await get(query(ref(db, path), orderByChild("expires"), endAt(serverNow() - 5 * 60 * 1000), limitToFirst(25)));
           old.forEach((child) => { deletions.push(remove(child.ref).catch(() => {})); });
         }

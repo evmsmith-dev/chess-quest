@@ -206,6 +206,8 @@
         <p class="setting-label">App</p>
         <button type="button" id="install-setting-btn" class="install-setting-btn">📲 Install Chess Quest</button>
       </div>
+      <button type="button" id="share-app-btn" class="install-setting-btn privacy-btn">📤 Share Chess Quest</button>
+      <button type="button" id="privacy-btn" class="install-setting-btn privacy-btn">🔒 Privacy</button>
       <p class="settings-note">Your progress is saved on this device. Online games store only the moves, avatars and a random player number, and are deleted after 7 days. Chess pieces by Colin M.L. Burnett (CC BY-SA 3.0).</p>
     </div>
   </div>
@@ -309,6 +311,34 @@
       <label class="visually-hidden" for="friend-name">Nickname</label>
       <input type="text" id="friend-name" class="text-input" maxlength="16" autocomplete="off" enterkeyhint="done">
       <div class="result-actions"><button type="button" id="save-friend" class="primary">Save friend</button></div>
+    </div>
+  </div>
+
+  <div id="privacy-overlay" class="overlay" role="dialog" aria-modal="true" aria-labelledby="privacy-heading" hidden>
+    <div class="overlay-backdrop" data-close></div>
+    <div class="overlay-card privacy-card">
+      <button type="button" class="overlay-close" data-close aria-label="Close">✕</button>
+      <h2 id="privacy-heading">Privacy</h2>
+      <p class="privacy-lead">Chess Quest doesn't ask for your name, email or age, has no accounts and no chat, and shows no ads. Nothing is used to track you.</p>
+      <h3>On this device</h3>
+      <p>Your lesson stars, puzzle progress, daily streak, settings, saved games, friends' nicknames and two-player names are kept on this phone or tablet only. They're never sent anywhere. Uninstalling the app or clearing the browser's site data deletes them.</p>
+      <h3>Online play (only if you use it)</h3>
+      <ul>
+        <li><strong>A game stores:</strong> the moves, each player's avatar (one of 12 animals), the clock times, and a random player number the app makes for this device. It isn't linked to any name, email or account.</li>
+        <li><strong>A seat key</strong>, a random code that lets this device rejoin its own game, is stored where nobody can read it.</li>
+        <li><strong>Games are deleted after 7 days.</strong> Player numbers are deleted after 30 days. Friend links (a private code only the two devices know) are deleted after 60 days without use.</li>
+        <li><strong>Daily puzzle:</strong> solving it adds one to two anonymous counts for that day (solved, and solved on the first try). Nothing else is stored.</li>
+      </ul>
+      <h3>Services used</h3>
+      <ul>
+        <li><strong>Google Firebase</strong> stores online games and the daily counts on Google's servers.</li>
+        <li><strong>Google reCAPTCHA</strong> checks in the background that online requests come from the real app, not a bot. This site is protected by reCAPTCHA and the Google <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">Privacy Policy</a> and <a href="https://policies.google.com/terms" target="_blank" rel="noopener">Terms of Service</a> apply.</li>
+        <li><strong>GitHub Pages</strong> hosts the app. Like any website host, it may keep short-term technical logs of visits.</li>
+      </ul>
+      <h3>For parents</h3>
+      <p>Children can use every part of Chess Quest without giving any personal information. Online games are only with people you've shared a game code or friend link with: there's no matching with strangers and no way to send messages.</p>
+      <p>Questions, or want online data removed sooner? <a href="https://github.com/evmsmith-dev/chess-quest/issues" target="_blank" rel="noopener">Contact us on GitHub</a>.</p>
+      <p class="settings-note">Last updated November 2026.</p>
     </div>
   </div>
 
