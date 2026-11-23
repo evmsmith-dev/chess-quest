@@ -283,3 +283,32 @@ test("keeping the game (Cancel → No) leaves it waiting", async ({ context }) =
   await host.locator("#confirm-no").click();
   await expect(host.locator(".game-code")).toBeVisible();
 });
+
+test("after a new player number, the seat key reclaims the seat", async ({ context }) => {
+  const { host, guest, code } = await twoPlayers(context);
+  await tapMove(host, "e2", "e4");
+  await expect.poll(() => pieceOn(guest, "e4")).toBe("wp");
+  // Firebase replaced the host's anonymous player number (its 30-day clean-up).
+  await host.evaluate((code) => {
+    sessionStorage.removeItem("chessQuest_localUid");
+    localStorage.setItem("chessQuest_onlineGame", JSON.stringify({ code, color: "w" })); // shared tab storage
+  }, code);
+  await host.reload();
+  await host.locator("#continue-online-btn").click();
+  await tapMove(guest, "e7", "e5");
+  await expect(host.locator("#message")).toContainText("Your move");
+  await tapMove(host, "g1", "f3");
+  await expect.poll(() => pieceOn(guest, "f3")).toBe("wn");
+});
+
+test("without a seat key, a changed player number is explained", async ({ context }) => {
+  const { host, code } = await twoPlayers(context);
+  await host.evaluate((code) => {
+    sessionStorage.removeItem("chessQuest_localUid");
+    localStorage.removeItem("chessQuest_seatKeys");
+    localStorage.setItem("chessQuest_onlineGame", JSON.stringify({ code, color: "w" }));
+  }, code);
+  await host.reload();
+  await host.locator("#continue-online-btn").click();
+  await expect(host.locator("#message")).toContainText("can't take part in this game any more");
+});

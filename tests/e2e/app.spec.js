@@ -396,3 +396,38 @@ test("a game with no big mistakes says so", async ({ page }) => {
   await page.locator("#result-secondary").click();
   await expect(page.locator("#message")).toContainText("No big mistakes");
 });
+
+test("the privacy page opens from Settings and closing it returns to Settings", async ({ page }) => {
+  await openApp(page);
+  await page.locator("#settings-btn").click();
+  await page.locator("#privacy-btn").click();
+  await expect(page.locator("#privacy-overlay")).toContainText("Games are deleted after 7 days");
+  await expect(page.locator("#privacy-overlay")).toContainText("protected by reCAPTCHA");
+  await page.keyboard.press("Escape");
+  await expect(page.locator("#privacy-overlay")).toBeHidden();
+  await expect(page.locator("#settings-overlay")).toBeVisible();
+});
+
+test("Share Chess Quest opens the share sheet with the website link", async ({ page }) => {
+  await page.addInitScript(() => {
+    window.__shared = null;
+    navigator.share = async (data) => { window.__shared = data; };
+  });
+  await openApp(page);
+  await page.locator("#settings-btn").click();
+  await page.locator("#share-app-btn").click();
+  const shared = await page.evaluate(() => window.__shared);
+  expect(shared.title).toBe("Chess Quest");
+  expect(shared.url).toBe(new URL("./", page.url()).href);
+  expect(shared.url).not.toContain("index.html");
+});
+
+test("without a share sheet, the link is copied", async ({ page, context }) => {
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  await page.addInitScript(() => { delete Navigator.prototype.share; });
+  await openApp(page);
+  await page.locator("#settings-btn").click();
+  await page.locator("#share-app-btn").click();
+  await expect(page.locator("#toast")).toContainText("Link copied");
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(new URL("./", page.url()).href);
+});

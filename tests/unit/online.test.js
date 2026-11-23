@@ -103,3 +103,17 @@ test("friend link ids", async () => {
   assert.equal(id.length, PAIR_LENGTH);
   assert.match(id, /^[A-HJKMNP-Z2-9]{16}$/); // the pattern in database.rules.json
 });
+
+test("seat keys are random and saved per game and color", async () => {
+  globalThis.localStorage ??= { _m: new Map(), getItem(k) { return this._m.get(k) ?? null; }, setItem(k, v) { this._m.set(k, String(v)); }, removeItem(k) { this._m.delete(k); } };
+  const { makeSeatKey, seatKey, rememberSeatKey, SEAT_KEY_LENGTH } = await import("../../src/online/common.js");
+  const a = makeSeatKey();
+  assert.equal(a.length, SEAT_KEY_LENGTH);
+  assert.match(a, /^[A-HJKMNP-Z2-9]{24}$/); // the pattern in database.rules.json
+  assert.notEqual(a, makeSeatKey());
+  rememberSeatKey("ABCDEF", "w", a);
+  assert.equal(seatKey("ABCDEF", "w"), a);
+  assert.equal(seatKey("ABCDEF", "b"), null);
+  for (let i = 0; i < 60; i++) rememberSeatKey(`C${String(i).padStart(5, "0")}`, "b", a);
+  assert.equal(seatKey("ABCDEF", "w"), null, "only the newest 50 games are kept");
+});

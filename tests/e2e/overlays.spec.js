@@ -4,6 +4,10 @@ import { openApp, tapMove } from "./helpers.js";
 
 const OPENERS = {
   "settings-overlay": async (page) => page.locator("#settings-btn").click(),
+  "privacy-overlay": async (page) => {
+    await page.locator("#settings-btn").click();
+    await page.locator("#privacy-btn").click();
+  },
   "newgame-overlay": async (page) => page.locator("#new-game-btn").click(),
   "friend-overlay": async (page) => page.locator("#friend-btn").click(),
   "online-overlay": async (page) => page.locator("#online-btn").click(),

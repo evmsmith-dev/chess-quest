@@ -22,11 +22,12 @@ Learn chess, solve puzzles and play the computer, in an app you install on a pho
   - A rematch swaps sides. An unfinished two-player game is saved separately from a game against the bot.
 - **🌐 Play online:** play someone on another phone or tablet. One player creates a game and shares a 6-character code or a link, and the other joins with it.
   - Moves, resign, draw offers and rematches (which swap sides) work across both devices. If the other player goes offline, you see it, and the game waits for them.
-  - Leaving and coming back continues the game. A game nobody has joined yet can be cancelled: it's deleted at once, and any friend challenge is withdrawn.
+  - Leaving and coming back continues the game. If Firebase replaces a player's anonymous number (it deletes them after 30 days), a private **seat key** saved on the device quietly reclaims their seat. A game nobody has joined yet can be cancelled: it's deleted at once, and any friend challenge is withdrawn.
   - **Clocks:** choose No clock, 5, 10 or 15 minutes per player. Only the player to move loses time, clocks use the server's time (so a phone's wrong clock doesn't matter), and running out loses the game.
   - **Friends:** after a game, **Add friend** saves a private link that only your two devices know, under a nickname that stays on your device. Saved friends appear in Play online with **Challenge**. The friend sees "Sam challenged you!" on Home the next time they open the app (challenges last 30 minutes). Friend links unused for 60 days are removed.
   - **No names and no chat:** players pick an emoji avatar. Only the moves, the avatars and a random player number are stored, and games are deleted after 7 days.
   - Runs on Firebase's free plan, which needs a one-time setup: see [docs/firebase-setup.md](docs/firebase-setup.md). Until then the card says online play isn't set up.
+- **⚙️ Settings** also has **📤 Share Chess Quest**, which opens the phone's share sheet with a link to the website (people install the app from there), and a plain-words **🔒 Privacy** page.
 - **📖 Rulebook:** every rule with an example board, searchable.
 
 **Moving pieces:** tap a piece and then a square, or drag it. Dots show where the piece can go. When you drag on a touch screen, the piece rides above your finger so you can see it. Illegal moves are explained ("That bishop is pinned: moving it would put your own king in check"). The board also works with a keyboard and a screen reader.
@@ -54,6 +55,7 @@ Learn chess, solve puzzles and play the computer, in an app you install on a pho
   - App Check (reCAPTCHA Enterprise) shuts out scripts that copied the public config.
   - The built page carries a Content Security Policy: only this site's code runs, and it talks only to Firebase and reCAPTCHA. A browser test fails if any screen breaks the policy.
   - Dependabot opens pull requests for dependency updates.
+  - **The database rules are tested** against Firebase's own rules engine (the emulator) on every push, in the `rules` job of the GitHub workflow (`tests/rules/`). The tests cover strangers moving, out-of-turn moves, rewriting history, resigning and winning, early time claims, reusing a seat key, reading seat keys, fake challenges and inflating stats.
 - **Sound** is made in code with Web Audio, so there are no audio files. It respects the iPhone silent switch. **Vibration** works on Android, with a light tick on iPhone (iOS 18+).
 - **Settings:** theme (auto, light or dark), board colors (green, blue or wood), sound, vibration, legal-move dots, coordinates, always promote to a queen, and larger text.
 - **`npm run build`** bundles everything into `dist/` with esbuild and writes a service worker that caches every file for offline play. New versions install in the background and are offered with an Update button, the same as in the other apps.
@@ -66,6 +68,7 @@ npm start          # play the source at http://localhost:8080
 npm test           # content check, unit tests, then build and run the browser tests
 npm run preview    # build and serve dist/ at http://localhost:8080
 npm run puzzles    # regenerate data/puzzles.json (takes a while)
+npm run test:rules # test database.rules.json in the Firebase emulator (needs Java)
 ```
 
 Pushes to `main` are tested and deployed to GitHub Pages by `.github/workflows/deploy.yml`. One-time setup: **Settings → Pages → Build and deployment → Source: GitHub Actions**.
