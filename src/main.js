@@ -17,6 +17,7 @@ import { newGame, newFriendGame, resumeGame, savedGame, savedFriendGame, setGame
 import { startLesson, lessonProgress, nextLesson, setLessonHooks } from "./screens/lesson.js";
 import { openOnlineGame, savedOnlineGame, setOnlineHooks, friends, saveFriends, toast } from "./screens/online.js";
 import { getBackend, onlineConfigured } from "./online/backend.js";
+import { isOffline, onConnectionChange, withTimeout } from "./online/connection.js";
 import { AVATARS, cleanCode, INVITE_FRESH_MS } from "./online/common.js";
 import { dailyStats, statsLine } from "./screens/puzzle.js";
 import { SETS, loadPuzzles, puzzleList, solvedPuzzles, startSet, startPuzzle, dailyPuzzle, dailyRecord, dailyStreak, setPuzzleHooks } from "./screens/puzzle.js";
@@ -278,13 +279,13 @@ byId("friend-list").addEventListener("click", async (e) => {
   onlineError("");
   setOnlineBusy(true);
   try {
-    const backend = await getBackend();
+    const backend = await readyBackend();
     const color = onlineColor === "random" ? (Math.random() < 0.5 ? "w" : "b") : onlineColor;
-    const code = await backend.create({ color, avatar: onlineAvatar, minutes: onlineMinutes });
-    if (!(await backend.invite(friend.id, code))) throw new Error("invite");
+    const code = await withTimeout(backend.create({ color, avatar: onlineAvatar, minutes: onlineMinutes }), TIMEOUT_MS);
+    if (!(await withTimeout(backend.invite(friend.id, code), TIMEOUT_MS))) throw new Error("invite");
     closeTopThen(() => openOnlineGame(code, color, { friendName: friend.name, inviteId: friend.id }));
-  } catch {
-    onlineError(CONNECT_ERROR);
+  } catch (error) {
+    onlineError(errorText(error));
     setOnlineBusy(false);
   }
 });
@@ -292,11 +293,28 @@ function onlineError(text) {
   byId("online-error").textContent = text || "";
   byId("online-error").hidden = !text;
 }
+let onlineBusy = false;
 function setOnlineBusy(busy) {
-  byId("online-create").disabled = busy;
-  byId("online-join").disabled = busy;
-  for (const b of document.querySelectorAll("[data-challenge]")) b.disabled = busy;
+  onlineBusy = busy;
+  const off = busy || isOffline();
+  byId("online-create").disabled = off;
+  byId("online-join").disabled = off;
+  for (const b of document.querySelectorAll("[data-challenge]")) b.disabled = off;
 }
+// Offline: say so in the online pop-up and disable its buttons until the connection is back.
+onConnectionChange((offline) => {
+  byId("online-offline").hidden = !offline;
+  if (offline) onlineError("");
+  setOnlineBusy(onlineBusy);
+});
+const OFFLINE_ERROR = "You're offline. Online play needs the internet.";
+const TIMEOUT_MS = 10000;
+/** The backend, or an error the pop-up can show (offline, can't connect). */
+async function readyBackend() {
+  if (isOffline()) throw new Error("offline");
+  return withTimeout(getBackend(), TIMEOUT_MS);
+}
+const errorText = (error) => (error?.message === "offline" ? OFFLINE_ERROR : CONNECT_ERROR);
 
 // ---------- Challenges from friends (shown on Home) ----------
 // With friends saved, the app listens to their private friend links; a fresh challenge (less
@@ -351,13 +369,15 @@ function dismissInvite(code) {
 byId("invite-join").addEventListener("click", async () => {
   const inv = currentInvite();
   if (!inv) return;
+  if (isOffline()) { toast(OFFLINE_ERROR); return; }
   byId("invite-join").disabled = true;
   try {
-    const { color } = await inviteBackend.join(inv.code, onlineAvatar);
+    const { color } = await withTimeout(inviteBackend.join(inv.code, onlineAvatar), TIMEOUT_MS);
     inviteBackend.clearInvite(inv.id);
     dismissInvite(inv.code);
     await openOnlineGame(inv.code, color, { friendName: inv.friend.name });
-  } catch {
+  } catch (error) {
+    if (error?.message === "timeout") { toast(CONNECT_ERROR); return; }
     dismissInvite(inv.code);
     toast("That challenge isn't available any more.");
   } finally {
@@ -404,12 +424,12 @@ byId("online-create").addEventListener("click", async () => {
   onlineError("");
   setOnlineBusy(true);
   try {
-    const backend = await getBackend();
+    const backend = await readyBackend();
     const color = onlineColor === "random" ? (Math.random() < 0.5 ? "w" : "b") : onlineColor;
-    const code = await backend.create({ color, avatar: onlineAvatar, minutes: onlineMinutes });
+    const code = await withTimeout(backend.create({ color, avatar: onlineAvatar, minutes: onlineMinutes }), TIMEOUT_MS);
     closeTopThen(() => openOnlineGame(code, color));
-  } catch {
-    onlineError(CONNECT_ERROR);
+  } catch (error) {
+    onlineError(errorText(error));
     setOnlineBusy(false);
   }
 });
@@ -420,12 +440,12 @@ async function joinOnline() {
   onlineError("");
   setOnlineBusy(true);
   try {
-    const backend = await getBackend();
-    const { color } = await backend.join(code, onlineAvatar);
+    const backend = await readyBackend();
+    const { color } = await withTimeout(backend.join(code, onlineAvatar), TIMEOUT_MS);
     closeTopThen(() => openOnlineGame(code, color));
   } catch (error) {
     onlineError(error?.message === "not-found" ? "There's no game with that code. Check it, or ask for a new one."
-      : error?.message === "full" ? "That game already has two players." : CONNECT_ERROR);
+      : error?.message === "full" ? "That game already has two players." : errorText(error));
     setOnlineBusy(false);
   }
 }
@@ -502,7 +522,11 @@ byId("online-btn").addEventListener("click", () => openOnline());
 byId("continue-online-btn").addEventListener("click", async () => {
   const saved = savedOnlineGame();
   if (!saved) return;
-  try { await openOnlineGame(saved.code, saved.color); } catch { byId("toast").textContent = CONNECT_ERROR; }
+  try {
+    await withTimeout(openOnlineGame(saved.code, saved.color), TIMEOUT_MS);
+  } catch (error) {
+    toast(errorText(error));
+  }
 });
 byId("new-game-btn").addEventListener("click", () => openNewGame("bot"));
 byId("learn-btn").addEventListener("click", () => openScreen("learn"));
