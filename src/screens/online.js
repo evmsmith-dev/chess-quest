@@ -8,6 +8,7 @@ import { openScreen, currentScreen, backToHome } from "../ui/overlays.js";
 import { readJson, writeJson } from "../storage.js";
 import { play } from "../ui/audio.js";
 import { buzz } from "../ui/haptics.js";
+import { alertPlayer, clearAlert } from "../ui/turnalert.js";
 import { getBackend } from "../online/backend.js";
 import { isOffline, onConnectionChange } from "../online/connection.js";
 import { moveList, GAME_DAYS, avatarOf, clockAt, outOfTime, turnOf, AVATARS } from "../online/common.js";
@@ -98,6 +99,7 @@ function leave() {
   O.unwatch?.();
   O.stopPresence?.();
   byId("offer").hidden = true;
+  clearAlert();
   O = null;
   hooks.onChange();
 }
@@ -157,9 +159,19 @@ function update(rec) {
       O.backend.reclaim(O.code, O.color).then((ok) => { if (O === mine) { mine.reclaiming = ok ? null : "failed"; render(); } });
     }
   }
+  const before = O.seen;
   syncMoves(moveList(rec));
   render();
+  O.seen = { myTurn: myTurn(), status: rec.status, rematch: rec.rematch || null };
+  if (before) alertIfNeeded(before, O.seen);
   if (rec.status === "over" && !O.shownResult) finished();
+}
+
+/** "Your move!" (and friends) when something changed for this player while they looked away. */
+function alertIfNeeded(before, now) {
+  if (now.status === "over" && before.status !== "over") alertPlayer("Game over");
+  else if (now.myTurn && !before.myTurn) alertPlayer(before.status === "waiting" ? "Your opponent joined" : "Your move");
+  else if (now.rematch && now.rematch !== before.rematch && now.rematch !== O.startedRematch) alertPlayer("Rematch?");
 }
 
 /** Brings the local game in line with the server's move list. */

@@ -359,3 +359,36 @@ test("Continue while offline explains why it can't open", async ({ page, context
   await expect(page.locator("#toast")).toContainText("You're offline");
   await context.setOffline(false);
 });
+
+/** Makes the page act as if the player switched to another app (or back). */
+async function lookAway(page, away = true) {
+  await page.evaluate((hidden) => {
+    Object.defineProperty(document, "visibilityState", { configurable: true, get: () => (hidden ? "hidden" : "visible") });
+    Object.defineProperty(document, "hidden", { configurable: true, get: () => hidden });
+    document.dispatchEvent(new Event("visibilitychange"));
+  }, away);
+}
+
+test("a 'Your move' alert shows in the title while the app is in the background", async ({ context }) => {
+  const { host, guest } = await twoPlayers(context);
+  await lookAway(guest);
+  await tapMove(host, "e2", "e4");
+  await expect(guest).toHaveTitle(/♟ Your move!/);
+  await lookAway(guest, false);
+  await expect(guest).toHaveTitle("Chess Quest");
+  // Looking at the app: no alert.
+  await tapMove(guest, "e7", "e5");
+  await tapMove(host, "g1", "f3");
+  await expect.poll(() => pieceOn(guest, "f3")).toBe("wn");
+  await expect(guest).toHaveTitle("Chess Quest");
+});
+
+test("'Your move' alerts can be turned off in Settings", async ({ context }) => {
+  const { host, guest } = await twoPlayers(context);
+  await guest.evaluate(() => document.querySelector('[data-setting="turnAlerts"]').click());
+  expect(await guest.evaluate(() => JSON.parse(localStorage.getItem("chessQuest_settings")).turnAlerts)).toBe(false);
+  await lookAway(guest);
+  await tapMove(host, "e2", "e4");
+  await expect.poll(() => pieceOn(guest, "e4")).toBe("wp");
+  await expect(guest).toHaveTitle("Chess Quest");
+});

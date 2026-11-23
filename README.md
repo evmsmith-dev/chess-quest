@@ -58,7 +58,8 @@ Learn chess, solve puzzles and play the computer, in an app you install on a pho
   - Dependabot opens pull requests for dependency updates.
   - **The database rules are tested** against Firebase's own rules engine (the emulator) on every push, in the `rules` job of the GitHub workflow (`tests/rules/`). The tests cover strangers moving, out-of-turn moves, rewriting history, resigning and winning, early time claims, reusing a seat key, reading seat keys, fake challenges and inflating stats.
 - **Sound** is made in code with Web Audio, so there are no audio files. It respects the iPhone silent switch. **Vibration** works on Android, with a light tick on iPhone (iOS 18+).
-- **Settings:** theme (auto, light or dark), board colors (green, blue or wood), sound, vibration, legal-move dots, coordinates, always promote to a queen, and larger text.
+- **“Your move” alerts:** in an online game, when the app is in the background, a chime, a vibration, a ♟ in the tab title and a badge on the app icon say it's your turn (also for a game ending, an opponent joining, a rematch or a friend's challenge). It all happens on the device: no server or push tokens. Browsers pause background pages after a while, iPhones and iPads almost at once, so it helps most on computers and Android.
+- **Settings:** theme (auto, light or dark), board colors (green, blue or wood), sound, vibration, “Your move” alerts, legal-move dots, coordinates, always promote to a queen, and larger text.
 - **`npm run build`** bundles everything into `dist/` with esbuild and writes a service worker that caches every file for offline play. New versions install in the background and are offered with an Update button, the same as in the other apps.
 
 ## Development

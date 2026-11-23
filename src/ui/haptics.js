@@ -12,6 +12,7 @@ const PATTERNS = {
   win: [20, 60, 40],
   lose: 70,
   check: [10, 40, 10],
+  turn: [30, 80, 30], // "your move" while the app is in the background
 };
 const IPHONE_TICKS = new Set(["tap", "land", "capture", "win"]);
 
