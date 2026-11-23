@@ -15,8 +15,8 @@
     "test": "npm run validate && npm run test:unit && npm run test:e2e"
   },
   "devDependencies": {
-    "@playwright/test": "^1.63.0",
-    "esbuild": "^0.25.12"
+    "@playwright/test": "^1.65.1",
+    "esbuild": "^0.28.2"
   },
   "dependencies": {
     "chess.js": "^1.4.0",
