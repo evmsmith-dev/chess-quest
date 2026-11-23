@@ -73,7 +73,8 @@ function taskControls(extra = []) {
   ]);
 }
 
-function succeed(message) {
+/** A task is done. `extra` buttons go before Next/Finish (e.g. Restart to try for fewer moves). */
+function succeed(message, extra = []) {
   L.done[L.task] = true;
   setTaskDots(L.lesson.tasks.length, L.task, L.done);
   board.setMovable(null);
@@ -81,7 +82,7 @@ function succeed(message) {
   buzz("win");
   setMessage(`✅ ${message}`, "good");
   const last = L.task === L.lesson.tasks.length - 1;
-  taskControls([{ label: last ? "Finish ➜" : "Next ➜", kind: "primary", id: "ctl-next", onClick: () => (last ? finishLesson() : startTask(L.task + 1)) }]);
+  taskControls([...extra, { label: last ? "Finish ➜" : "Next ➜", kind: "primary", id: "ctl-next", onClick: () => (last ? finishLesson() : startTask(L.task + 1)) }]);
   document.getElementById("ctl-next")?.focus({ preventScroll: true });
 }
 
@@ -148,7 +149,8 @@ function starsTask(task) {
       if (got) { play("star"); buzz("capture"); } else { play("move"); buzz("land"); }
       if (!left.length) {
         const best = moves <= par;
-        succeed(best ? `All stars in ${moves} move${moves === 1 ? "" : "s"}: the fewest possible!` : `All stars collected in ${moves} moves. It can be done in ${par}: try Restart if you like.`);
+        if (best) succeed(`All stars in ${moves} move${moves === 1 ? "" : "s"}: the fewest possible!`);
+        else succeed(`All stars collected in ${moves} moves. It can be done in ${par}: try ↺ Restart if you like.`, [{ label: "↺ Restart", id: "ctl-restart", onClick: restart }]);
       } else setMessage(status());
     },
     onIllegal(from, to) {

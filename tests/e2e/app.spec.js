@@ -431,3 +431,56 @@ test("without a share sheet, the link is copied", async ({ page, context }) => {
   await expect(page.locator("#toast")).toContainText("Link copied");
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(new URL("./", page.url()).href);
 });
+
+test("Home points new players at Learn, and the three ways to play share one card", async ({ page }) => {
+  await openApp(page);
+  await expect(page.locator("#start-here")).toBeVisible();
+  await expect(page.locator("#learn-card")).toHaveClass(/is-featured/);
+  for (const id of ["#new-game-btn", "#friend-btn", "#online-btn"]) await expect(page.locator(`.play-card ${id}`)).toBeVisible();
+  await expect(page.locator("#rules-btn")).toContainText("Rulebook");
+});
+
+test("returning players see their record, not Start here", async ({ page }) => {
+  await openApp(page, { storage: { lessons: { board: { stars: 3 } }, games: { beginner: { w: 2, l: 1, d: 0 } } } });
+  await expect(page.locator("#start-here")).toBeHidden();
+  await expect(page.locator("#play-summary")).toContainText("2W 1L 0D");
+});
+
+test("pop-up buttons stay on screen even when the pop-up has to scroll", async ({ page }) => {
+  await openApp(page);
+  for (const [open, button] of [
+    [async () => page.locator("#new-game-btn").click(), "#start-game-btn"],
+    [async () => { await page.locator("#learn-btn").click(); await page.locator('[data-lesson="knight"]').click(); }, "#tip-overlay .primary"],
+  ]) {
+    await open();
+    const box = await page.locator(button).boundingBox();
+    const viewport = page.viewportSize();
+    expect(box.y + box.height).toBeLessThanOrEqual(viewport.height);
+    expect(box.y).toBeGreaterThanOrEqual(0);
+    // And it's really the button at that spot (not covered by anything).
+    const hit = await page.evaluate(([x, y]) => document.elementFromPoint(x, y)?.closest("button")?.textContent, [box.x + box.width / 2, box.y + box.height / 2]);
+    expect(hit).toBe(await page.locator(button).textContent());
+    await page.keyboard.press("Escape");
+    await page.goto("index.html");
+  }
+});
+
+test("after collecting the stars the long way, Restart is offered", async ({ page }) => {
+  await openApp(page);
+  await page.locator("#learn-btn").click();
+  await page.locator('[data-lesson="king"]').click();
+  await page.locator("#tip-overlay .primary").click();
+  // Task 1 in the fewest moves: no Restart needed.
+  for (const [a, b] of [["e1", "e2"], ["e2", "e3"], ["e3", "f3"], ["f3", "g3"]]) await tapMove(page, a, b);
+  await expect(page.locator("#message")).toContainText("the fewest possible");
+  await expect(page.locator("#ctl-restart")).toHaveCount(0);
+  await page.locator("#ctl-next").click();
+  // Task 2 (your screenshot): around the bishop the long way, four moves instead of three.
+  for (const [a, b] of [["e3", "d3"], ["d3", "d4"], ["d4", "d5"], ["d5", "e6"]]) await tapMove(page, a, b);
+  await expect(page.locator("#message")).toContainText("It can be done in 3");
+  await expect(page.locator("#ctl-restart")).toBeVisible();
+  await page.locator("#ctl-restart").click();
+  await expect(page.locator("#message")).toContainText("Moves: 0");
+  await expect.poll(() => pieceOn(page, "e3")).toBe("wk");
+  await expect(page.locator("#ctl-next")).toHaveCount(0);
+});

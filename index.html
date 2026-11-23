@@ -73,8 +73,8 @@
     </section>
 
     <div class="mode-list">
-      <section class="mode-card">
-        <div class="mode-head"><span class="mode-emoji" aria-hidden="true">🎓</span><div><h2>Learn</h2><p class="mode-tagline">Short lessons, from the first moves to checkmate.</p></div></div>
+      <section id="learn-card" class="mode-card">
+        <div class="mode-head"><span class="mode-emoji" aria-hidden="true">🎓</span><div><h2>Learn <span id="start-here" class="start-here" hidden>Start here</span></h2><p class="mode-tagline">Short lessons, from the first moves to checkmate.</p></div></div>
         <div class="progress-bar" aria-hidden="true"><span id="learn-bar"></span></div>
         <div class="mode-foot"><span id="learn-summary" class="mode-stat"></span><button type="button" id="learn-btn" class="play-btn">Start</button></div>
       </section>
@@ -83,22 +83,15 @@
         <div class="progress-bar" aria-hidden="true"><span id="challenge-bar"></span></div>
         <div class="mode-foot"><span id="challenge-summary" class="mode-stat"></span><button type="button" id="challenges-btn" class="play-btn">Open</button></div>
       </section>
-      <section class="mode-card">
-        <div class="mode-head"><span class="mode-emoji" aria-hidden="true">🤖</span><div><h2>Play the computer</h2><p class="mode-tagline">A full game against a Beginner or Intermediate bot.</p></div></div>
-        <div class="mode-foot"><span id="play-summary" class="mode-stat"></span><button type="button" id="new-game-btn" class="play-btn">Play</button></div>
+      <section class="mode-card play-card" aria-labelledby="play-heading">
+        <div class="mode-head"><span class="mode-emoji" aria-hidden="true">♟️</span><div><h2 id="play-heading">Play a game</h2><p id="play-summary" class="mode-tagline">A full game of chess. Who's your opponent?</p></div></div>
+        <div class="play-choices">
+          <button type="button" id="new-game-btn" class="play-choice"><span aria-hidden="true">🤖</span>Computer</button>
+          <button type="button" id="friend-btn" class="play-choice"><span aria-hidden="true">👥</span>Friend here</button>
+          <button type="button" id="online-btn" class="play-choice"><span aria-hidden="true">🌐</span>Online</button>
+        </div>
       </section>
-      <section class="mode-card">
-        <div class="mode-head"><span class="mode-emoji" aria-hidden="true">👥</span><div><h2>Play a friend</h2><p class="mode-tagline">Two players take turns on this phone or tablet.</p></div></div>
-        <div class="mode-foot"><span class="mode-stat">Pass and play</span><button type="button" id="friend-btn" class="play-btn">Play</button></div>
-      </section>
-      <section class="mode-card">
-        <div class="mode-head"><span class="mode-emoji" aria-hidden="true">🌐</span><div><h2>Play online</h2><p class="mode-tagline">Play someone on another phone or tablet with a game code.</p></div></div>
-        <div class="mode-foot"><span class="mode-stat">No names, no chat</span><button type="button" id="online-btn" class="play-btn">Play</button></div>
-      </section>
-      <section class="mode-card">
-        <div class="mode-head"><span class="mode-emoji" aria-hidden="true">📖</span><div><h2>Rulebook</h2><p class="mode-tagline">Every rule of chess, with examples on a board.</p></div></div>
-        <div class="mode-foot"><span class="mode-stat"></span><button type="button" id="rules-btn" class="play-btn secondary-play">Read</button></div>
-      </section>
+      <button type="button" id="rules-btn" class="link-row"><span class="link-row-emoji" aria-hidden="true">📖</span><span class="link-row-text"><strong>Rulebook</strong><small>Every rule of chess, with examples</small></span><span class="link-row-go" aria-hidden="true">›</span></button>
     </div>
   </main>
 
