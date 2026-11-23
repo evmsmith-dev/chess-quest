@@ -74,6 +74,9 @@ function renderHome() {
   byId("learn-bar").style.width = `${(doneCount / ALL_LESSONS.length) * 100}%`;
   byId("learn-summary").textContent = `${doneCount} of ${ALL_LESSONS.length} lessons`;
   byId("learn-btn").textContent = doneCount === 0 ? "Start" : next ? "Continue" : "Review";
+  // Brand-new players: point them at the first lesson.
+  byId("start-here").hidden = doneCount > 0;
+  byId("learn-card").classList.toggle("is-featured", doneCount === 0);
 
   // Challenges.
   const solved = solvedPuzzles();
@@ -85,7 +88,7 @@ function renderHome() {
   // Games.
   const games = readJson("games", {});
   const parts = ["beginner", "intermediate"].filter((l) => games[l]).map((l) => `${l === "beginner" ? "🐣" : "🦉"} ${games[l].w}W ${games[l].l}L ${games[l].d}D`);
-  byId("play-summary").textContent = parts.join(" · ") || "Beginner or Intermediate";
+  byId("play-summary").textContent = parts.length ? `Your record vs the bots: ${parts.join(" · ")}` : "A full game of chess. Who's your opponent?";
 }
 
 // ---------- Learn ----------
