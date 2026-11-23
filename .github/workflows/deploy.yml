@@ -45,6 +45,25 @@ jobs:
         with:
           path: dist
 
+  # The database rules, tested in Firebase's emulator (needs Java). Separate from the site
+  # deploy: the rules are published by pasting them into the Firebase console.
+  rules:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+      - run: npm ci
+      - name: Test the database rules in the emulator
+        run: npm run test:rules
+
   deploy:
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     needs: test
