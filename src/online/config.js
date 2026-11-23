@@ -16,6 +16,6 @@ export const FIREBASE_CONFIG = {
 // App Check: proves requests come from the real Chess Quest app, not a script that copied the
 // settings above. Paste the reCAPTCHA Enterprise site key here (see docs/firebase-setup.md,
 // "App Check"). It's public too. While this is null, App Check is off.
-export const APP_CHECK_SITE_KEY = null;
+export const APP_CHECK_SITE_KEY = "6LcEzywuAAAAANGxenDQ1R589J3e1hsnSYlA4stl";
 // "enterprise" for a reCAPTCHA Enterprise key, or "v3" for a classic reCAPTCHA v3 key.
 export const APP_CHECK_PROVIDER = "enterprise";
