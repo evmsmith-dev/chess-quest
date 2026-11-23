@@ -9,6 +9,7 @@ import { openOverlay, closeTopThen, openScreen, currentScreen } from "../ui/over
 import { readJson, writeJson } from "../storage.js";
 import { play } from "../ui/audio.js";
 import { buzz } from "../ui/haptics.js";
+import { startReview } from "./review.js";
 
 const byId = (id) => document.getElementById(id);
 const BOT = {
@@ -162,7 +163,8 @@ function controls() {
   if (!g) return;
   if (g.over) {
     setControls([
-      { label: "✨ New game", onClick: () => openNewGame(isFriend() ? "friend" : "bot") },
+      { label: "✨ New", ariaLabel: "New game", onClick: () => openNewGame(isFriend() ? "friend" : "bot") },
+      { label: "🔍 Review", id: "ctl-review", onClick: review },
       { label: "🔁 Rematch", kind: "primary", onClick: rematch },
     ]);
     return;
@@ -190,6 +192,29 @@ function applyMove(moveSpec) {
   render(true, move);
   save();
   return move;
+}
+
+/** Opens the review of the finished game; Back comes back to it. */
+function review() {
+  if (!g?.over) return;
+  const game = g;
+  const moves = game.game.history({ verbose: true }).map((m) => m.from + m.to + (m.promotion || ""));
+  const friend = isFriend();
+  startReview({
+    moves,
+    colors: friend ? ["w", "b"] : [game.color],
+    nameOf: (color) => (friend ? nameOf(color) : "You"),
+    opponentOf: (color) => (friend ? nameOf(color === "w" ? "b" : "w") : "the bot"),
+    sub: friend ? `${nameOf("w")} vs ${nameOf("b")}` : `vs ${BOT[game.level].name}`,
+    orientation: board.orientation,
+    onExit: () => {
+      if (g !== game) return;
+      useMode(mode);
+      setTitle(friend ? "Two players" : BOT[game.level].name, friend ? `${nameOf("w")} vs ${nameOf("b")}` : game.color === "w" ? "You play White" : "You play Black");
+      render(false);
+      setMessage(game.over.result === "draw" ? "The game is a draw." : friend ? `${label(game.over.result)} won.` : game.over.result === game.color ? "You won! 🎉" : "The bot won this time.");
+    },
+  });
 }
 
 /** A rematch: against the bot you switch colors; two players swap sides. */
@@ -316,7 +341,7 @@ function finishIfOver(forced) {
       title: won ? "You win!" : draw ? "Draw" : "The bot wins",
       text: outcome.reason === "checkmate" ? (won ? `You checkmated the ${BOT[g.level].name}.` : `${who === "White" ? "Black" : "White"} won by checkmate. Every game teaches you something!`) : OUTCOME_TEXT[outcome.reason],
       stats: [["Moves", Math.ceil(g.game.history().length / 2)], ["Record", `${entry.w}–${entry.l}–${entry.d}`]],
-      secondary: ["See the board", null],
+      secondary: ["🔍 Review game", review],
       primary: ["Rematch", () => newGame({ ...g, color: g.color === "w" ? "b" : "w" })],
     });
     setMessage(won ? "You won! 🎉" : draw ? "The game is a draw." : "The bot won this time.");
@@ -343,7 +368,7 @@ function friendResult(outcome) {
       title: draw ? "Draw" : `${nameOf(winner)} wins!`,
       text: outcome.reason === "agreed" ? "You agreed to a draw." : text,
       stats: [["Moves", Math.ceil(g.game.history().length / 2)]],
-      secondary: ["See the board", null],
+      secondary: ["🔍 Review game", review],
       primary: ["Rematch", rematch],
     });
     setMessage(draw ? "The game is a draw." : `${label(winner)} wins! 🎉`);

@@ -11,6 +11,7 @@ let worker = null;
 let failed = false;
 let nextId = 1;
 const pending = new Map();
+const progressHandlers = new Map();
 let fallbackSearcher = null;
 
 function getWorker() {
@@ -18,8 +19,10 @@ function getWorker() {
   try {
     worker = new Worker(WORKER_URL, { type: WORKER_TYPE });
     worker.addEventListener("message", (e) => {
+      if (e.data.progress !== undefined) { progressHandlers.get(e.data.id)?.(e.data.progress); return; }
       const resolve = pending.get(e.data.id);
       pending.delete(e.data.id);
+      progressHandlers.delete(e.data.id);
       resolve?.(e.data);
     });
     worker.addEventListener("error", () => {
@@ -34,8 +37,11 @@ function getWorker() {
   return worker;
 }
 
-function runHere({ type, fen, history = [], level }) {
+function runHere({ type, fen, history = [], level, fens, depth, timeMs }) {
   fallbackSearcher ||= new Searcher();
+  if (type === "review") {
+    return { scores: fens.map((f) => fallbackSearcher.rootScores(new Position(f), { depth, timeMs }).map((r) => ({ uci: uciString(r.move), score: r.score }))) };
+  }
   const pos = new Position(fen);
   pos.hashes = history.map((f) => new Position(f).hash);
   if (type === "move") {
@@ -46,14 +52,23 @@ function runHere({ type, fen, history = [], level }) {
   return { move: r.move ? uciString(r.move) : null, score: r.score };
 }
 
-function ask(message) {
+function ask(message, onProgress) {
   const w = getWorker();
   if (!w) return Promise.resolve(runHere(message));
   return new Promise((resolve) => {
     const id = nextId++;
     pending.set(id, (data) => resolve(data.error ? runHere(message) : data));
+    if (onProgress) progressHandlers.set(id, onProgress);
     w.postMessage({ id, ...message });
   });
+}
+
+/**
+ * Scores every legal move in each position (for game review). `onProgress(fraction)` is called
+ * as positions are done. Resolves an array (one per FEN) of [{ uci, score }], best first.
+ */
+export async function scorePositions(fens, { depth = 3, timeMs = 220 } = {}, onProgress) {
+  return (await ask({ type: "review", fens, depth, timeMs }, onProgress)).scores;
 }
 
 /** The bot's move for `fen` at `level`, as "e2e4" (or null if it has none). */

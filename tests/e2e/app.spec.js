@@ -340,3 +340,59 @@ test("the built page has a Content Security Policy and nothing breaks it", async
   expect(await page.evaluate(() => window.__csp)).toEqual([]);
   void context;
 });
+
+test("game review finds a hung queen and lets you try a better move", async ({ page }) => {
+  await openApp(page, { storage: { current: { level: "beginner", color: "w", coach: false, undo: false, hints: false, moves: ["e2e4", "d7d5", "d1g4"] } } });
+  await page.locator("#continue-btn").click();
+  await page.clock.runFor(3000);
+  await page.getByRole("button", { name: "Game menu" }).click();
+  await page.locator("#menu-resign").click();
+  await page.locator("#confirm-ok").click();
+  await page.clock.runFor(1500);
+  await page.locator("#result-secondary").click(); // Review game
+  await expect(page.locator("#play-title")).toHaveText("Game review");
+  await page.clock.runFor(20000);
+  await expect(page.locator("#message")).toContainText("queen on g4", { timeout: 20000 });
+  await expect(page.locator(".moment-chip").first()).toContainText("Move 2");
+  // Try the same bad move again, then ask to be shown.
+  await page.locator("#ctl-try").click();
+  await tapMove(page, "d1", "g4");
+  await expect(page.locator("#message")).toContainText("isn't better");
+  await page.locator("#ctl-show").click();
+  await expect(page.locator("#message")).toContainText("Better:");
+  // Back returns to the finished game.
+  await page.goBack();
+  await expect(page.locator("#play-title")).toHaveText("Beginner bot");
+  await expect(page.locator("#ctl-review")).toBeVisible();
+});
+
+test("two-player review covers both sides and finds the allowed mate", async ({ page }) => {
+  await openApp(page);
+  await page.locator("#friend-btn").click();
+  await page.locator("#name-w").fill("Ana");
+  await page.locator("#name-b").fill("Ben");
+  await page.locator("#opt-autoflip").uncheck();
+  await page.locator("#start-friend-btn").click();
+  for (const [a, b] of [["f2", "f3"], ["e7", "e5"], ["g2", "g4"], ["d8", "h4"]]) await tapMove(page, a, b);
+  await page.clock.runFor(1500);
+  await page.locator("#result-secondary").click();
+  await page.clock.runFor(20000);
+  await expect(page.locator("#message")).toContainText("Allowed checkmate", { timeout: 20000 });
+  await expect(page.locator("#message")).toContainText("Ana played g4");
+  await expect(page.locator("#message")).toContainText("This let Ben force checkmate");
+  await page.locator("#ctl-try").click();
+  await tapMove(page, "e2", "e4");
+  await expect(page.locator("#message")).toContainText(/That's it|works too/);
+});
+
+test("a game with no big mistakes says so", async ({ page }) => {
+  await openApp(page);
+  await page.locator("#friend-btn").click();
+  await page.locator("#start-friend-btn").click();
+  await page.getByRole("button", { name: "Game menu" }).click();
+  await page.locator("#menu-resign").click();
+  await page.locator("#confirm-ok").click();
+  await page.clock.runFor(1500);
+  await page.locator("#result-secondary").click();
+  await expect(page.locator("#message")).toContainText("No big mistakes");
+});
