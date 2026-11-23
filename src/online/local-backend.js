@@ -9,21 +9,26 @@ const channel = typeof BroadcastChannel !== "undefined" ? new BroadcastChannel("
 const listeners = new Map(); // code → Set of callbacks
 
 const readAll = () => { try { return JSON.parse(localStorage.getItem(STORE)) || {}; } catch { return {}; } };
-const read = (code) => readAll()[code] || null;
+// The newest copy of each game this tab has seen (from its own writes or other tabs' messages),
+// which can be newer than this tab's view of localStorage.
+const latest = new Map();
+const read = (code) => (latest.has(code) ? latest.get(code) : readAll()[code] || null);
 
 function write(code, game) {
   const all = readAll();
   if (game) all[code] = game; else delete all[code];
   localStorage.setItem(STORE, JSON.stringify(all));
-  notify(code);
-  channel?.postMessage({ code });
+  latest.set(code, game || null);
+  notify(code, game || null);
+  // Send the game itself, like Firebase does: another tab's copy of localStorage can lag behind
+  // the message, so re-reading it there could show the old game.
+  channel?.postMessage({ code, game: game || null });
 }
 
-function notify(code) {
-  const game = read(code);
+function notify(code, game) {
   for (const cb of listeners.get(code) || []) setTimeout(() => cb(game), 0);
 }
-channel?.addEventListener("message", (e) => notify(e.data.code));
+channel?.addEventListener("message", (e) => { latest.set(e.data.code, e.data.game); notify(e.data.code, e.data.game); });
 
 /** Applies `change(game)`; nothing is written if it returns null. Resolves true if written. */
 function transact(code, change) {
