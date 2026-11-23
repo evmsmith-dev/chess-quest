@@ -4,6 +4,7 @@ import { initOverlays, openOverlay, openScreen, onScreenShown, closeTopThen } fr
 import { registerServiceWorker } from "./ui/update.js";
 import { initInstall, refreshInstall } from "./ui/install.js";
 import { hapticsAvailable } from "./ui/haptics.js";
+import { alertPlayer } from "./ui/turnalert.js";
 import { unlockAudio } from "./ui/audio.js";
 import { loadPieceSprite } from "./ui/board.js";
 import { getSettings, updateSettings, onSettingsChange } from "./lib/settings.js";
@@ -361,6 +362,7 @@ function renderInvite() {
   if (!inv) return;
   byId("invite-avatar").textContent = AVATARS[inv.friend.avatar] || "🙂";
   byId("invite-text").textContent = `${inv.friend.name} challenged you to a game!`;
+  if (byId("invite-card").dataset.code !== inv.code) alertPlayer("A friend challenged you");
   byId("invite-card").dataset.code = inv.code;
 }
 

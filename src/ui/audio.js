@@ -83,6 +83,8 @@ const SOUNDS = {
   wrong: () => { tone({ freq: 330, decay: 0.15, gain: 0.12, type: "triangle" }); tone({ freq: 262, start: 0.12, decay: 0.25, gain: 0.12, type: "triangle" }); },
   win: () => [523, 659, 784, 1046].forEach((f, i) => tone({ freq: f, start: i * 0.1, decay: 0.4, gain: 0.13, type: "triangle" })),
   lose: () => [392, 330, 262].forEach((f, i) => tone({ freq: f, start: i * 0.14, decay: 0.4, gain: 0.11, type: "triangle" })),
+  // "Your move!": a friendly two-note doorbell, loud enough to notice from another tab.
+  turn: () => { tone({ freq: 988, decay: 0.3, gain: 0.18, type: "triangle" }); tone({ freq: 784, start: 0.18, decay: 0.45, gain: 0.18, type: "triangle" }); },
   draw: () => [440, 440].forEach((f, i) => tone({ freq: f, start: i * 0.15, decay: 0.3, gain: 0.1, type: "triangle" })),
 };
 
