@@ -40,6 +40,8 @@ test("the Firebase config is filled in and complete", async () => {
   const { FIREBASE_CONFIG } = await import("../../src/online/config.js");
   for (const key of ["apiKey", "authDomain", "databaseURL", "projectId", "appId"]) assert.ok(FIREBASE_CONFIG?.[key], `missing ${key}`);
   assert.match(FIREBASE_CONFIG.databaseURL, /^https:\/\/.+(firebaseio\.com|firebasedatabase\.app)/);
+  const { APP_CHECK_SITE_KEY } = await import("../../src/online/config.js");
+  assert.ok(APP_CHECK_SITE_KEY === null || (typeof APP_CHECK_SITE_KEY === "string" && APP_CHECK_SITE_KEY.length > 20), "App Check key is null or a site key");
 });
 
 test("database rules file is valid and locked down by default", () => {

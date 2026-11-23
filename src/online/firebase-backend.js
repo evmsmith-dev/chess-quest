@@ -2,6 +2,7 @@
 // the Realtime Database. Loaded only when someone opens online play, so the rest of the app stays
 // small and works offline. database.rules.json is the server-side half of this file.
 import { initializeApp } from "firebase/app";
+import { initializeAppCheck, ReCaptchaEnterpriseProvider, ReCaptchaV3Provider } from "firebase/app-check";
 import { getAuth, signInAnonymously, onAuthStateChanged } from "firebase/auth";
 import {
   getDatabase, ref, get, set, remove, onValue, runTransaction, onDisconnect, serverTimestamp,
@@ -9,8 +10,17 @@ import {
 } from "firebase/database";
 import { makeCode, newGameRecord, withMove, withJoin, withResult, colorOf } from "./common.js";
 
-export async function createFirebaseBackend(config) {
+export async function createFirebaseBackend(config, appCheckSiteKey = null, appCheckProvider = "enterprise") {
   const app = initializeApp(config);
+  if (appCheckSiteKey) {
+    // On a developer's own computer, App Check prints a debug token in the console instead; add
+    // it under App Check → Apps → Manage debug tokens to test against the real project.
+    if (["localhost", "127.0.0.1"].includes(location.hostname)) self.FIREBASE_APPCHECK_DEBUG_TOKEN = true;
+    // Invisible: reCAPTCHA Enterprise scores the request in the background, players never see a
+    // challenge. It must start before anything else talks to Firebase.
+    const provider = appCheckProvider === "v3" ? new ReCaptchaV3Provider(appCheckSiteKey) : new ReCaptchaEnterpriseProvider(appCheckSiteKey);
+    initializeAppCheck(app, { provider, isTokenAutoRefreshEnabled: true });
+  }
   const auth = getAuth(app);
   const db = getDatabase(app);
   // The same anonymous id comes back on this device, so a player can rejoin their games.

@@ -1,7 +1,7 @@
 // Picks the online backend: Firebase when it's configured, or the local test backend when the
 // browser tests ask for it (window.__CHESS_BACKEND = "local"; "off" acts as if Firebase weren't
 // set up). Returns null when online play isn't available.
-import { FIREBASE_CONFIG } from "./config.js";
+import { FIREBASE_CONFIG, APP_CHECK_SITE_KEY, APP_CHECK_PROVIDER } from "./config.js";
 
 let pending = null;
 
@@ -15,7 +15,7 @@ export function getBackend() {
     }
     if (!FIREBASE_CONFIG || window.__CHESS_BACKEND === "off") return null;
     const { createFirebaseBackend } = await import("./firebase-backend.js");
-    return createFirebaseBackend(FIREBASE_CONFIG);
+    return createFirebaseBackend(FIREBASE_CONFIG, APP_CHECK_SITE_KEY, APP_CHECK_PROVIDER);
   })().catch((error) => {
     pending = null; // let the next attempt try again (e.g. after coming back online)
     throw error;

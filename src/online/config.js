@@ -12,3 +12,10 @@ export const FIREBASE_CONFIG = {
   messagingSenderId: "527246901761",
   appId: "1:527246901761:web:890c64aabc297917e3f600",
 };
+
+// App Check: proves requests come from the real Chess Quest app, not a script that copied the
+// settings above. Paste the reCAPTCHA Enterprise site key here (see docs/firebase-setup.md,
+// "App Check"). It's public too. While this is null, App Check is off.
+export const APP_CHECK_SITE_KEY = null;
+// "enterprise" for a reCAPTCHA Enterprise key, or "v3" for a classic reCAPTCHA v3 key.
+export const APP_CHECK_PROVIDER = "enterprise";

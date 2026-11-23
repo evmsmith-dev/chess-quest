@@ -51,6 +51,40 @@ delete a game once it's more than 7 days old. Without them, the database refuses
 
 Push the change. Once GitHub Pages has deployed it, **Play online** works.
 
+## 6. App Check (recommended)
+
+App Check makes Firebase accept requests only from the real Chess Quest app, not from scripts
+that copied the settings above. It's invisible to players: reCAPTCHA Enterprise checks quietly in
+the background and never shows a puzzle.
+
+**Order matters:** turn on *enforcement* last. If you enforce before the app sends App Check
+tokens, online play stops working.
+
+1. **Make a reCAPTCHA key.** Open <https://console.cloud.google.com/security/recaptcha> and pick
+   the same project at the top (`chess-quest-…`). If asked, enable the reCAPTCHA Enterprise API.
+   Click **Create key**: type *Website*, name `Chess Quest`, domain `evmsmith-dev.github.io`. Leave
+   **Use checkbox challenge** off. Create it and copy the **key ID** (a long string starting with
+   `6L`).
+2. **Register the app with App Check.** In the Firebase console: **Security → App Check → Apps**.
+   Choose the web app, pick **reCAPTCHA Enterprise**, paste the key ID, and save. Leave the
+   threshold at 0.5.
+3. **Put the key in the app.** In [`src/online/config.js`](../src/online/config.js) set
+   `export const APP_CHECK_SITE_KEY = "6L…";` (or paste it to Claude). Push, and wait for the deploy.
+4. **Check it's working.** Play an online game, then look at **App Check → APIs → Realtime
+   Database**. After a few hours the chart should show almost all requests as **Verified**.
+5. **Enforce.** On that same page, click **Enforce** for **Realtime Database**. From then on,
+   requests without a valid App Check token are refused.
+
+reCAPTCHA Enterprise has a free monthly allowance that's far more than a chess app needs. If the
+Google Cloud console insists on a billing account before creating the key, use classic
+**reCAPTCHA v3** instead, which never needs one: create a v3 key at
+<https://www.google.com/recaptcha/admin/create> (domain `evmsmith-dev.github.io`), choose
+**reCAPTCHA** (not Enterprise) in step 2 and paste the *secret key* there, and in step 3 set
+`APP_CHECK_SITE_KEY` to the *site key* and `APP_CHECK_PROVIDER = "v3"`.
+Players who installed an older version get the App Check update the next time they tap **Update**.
+Enforce only after most of them have done that (a few days), or they'll see "Couldn't connect"
+until they update.
+
 ## Optional: clean up old player numbers
 
 Under **Authentication → Sign-in method → Anonymous** you can turn on **automatic clean-up**,
