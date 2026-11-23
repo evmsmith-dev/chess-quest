@@ -67,6 +67,12 @@ export async function createLocalBackend() {
       setTimeout(() => cb(read(code)), 0);
       return () => listeners.get(code)?.delete(cb);
     },
+    async cancel(code) {
+      const game = read(code);
+      if (!game || game.status !== "waiting" || !colorOf(game, uid)) return false;
+      write(code, null);
+      return true;
+    },
     move: (code, ply, uci, result) => transact(code, (g) => withMove(g, uid, ply, uci, result)),
     finish: (code, result) => transact(code, (g) => withResult(g, uid, result)),
     offerDraw: (code, color) => transact(code, (g) => {

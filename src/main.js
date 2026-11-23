@@ -282,7 +282,7 @@ byId("friend-list").addEventListener("click", async (e) => {
     const color = onlineColor === "random" ? (Math.random() < 0.5 ? "w" : "b") : onlineColor;
     const code = await backend.create({ color, avatar: onlineAvatar, minutes: onlineMinutes });
     if (!(await backend.invite(friend.id, code))) throw new Error("invite");
-    closeTopThen(() => openOnlineGame(code, color, { friendName: friend.name }));
+    closeTopThen(() => openOnlineGame(code, color, { friendName: friend.name, inviteId: friend.id }));
   } catch {
     onlineError(CONNECT_ERROR);
     setOnlineBusy(false);

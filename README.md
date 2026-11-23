@@ -22,7 +22,7 @@ Learn chess, solve puzzles and play the computer, in an app you install on a pho
   - A rematch swaps sides. An unfinished two-player game is saved separately from a game against the bot.
 - **🌐 Play online:** play someone on another phone or tablet. One player creates a game and shares a 6-character code or a link, and the other joins with it.
   - Moves, resign, draw offers and rematches (which swap sides) work across both devices. If the other player goes offline, you see it, and the game waits for them.
-  - Leaving and coming back continues the game.
+  - Leaving and coming back continues the game. A game nobody has joined yet can be cancelled: it's deleted at once, and any friend challenge is withdrawn.
   - **Clocks:** choose No clock, 5, 10 or 15 minutes per player. Only the player to move loses time, clocks use the server's time (so a phone's wrong clock doesn't matter), and running out loses the game.
   - **Friends:** after a game, **Add friend** saves a private link that only your two devices know, under a nickname that stays on your device. Saved friends appear in Play online with **Challenge**. The friend sees "Sam challenged you!" on Home the next time they open the app (challenges last 30 minutes). Friend links unused for 60 days are removed.
   - **No names and no chat:** players pick an emoji avatar. Only the moves, the avatars and a random player number are stored, and games are deleted after 7 days.

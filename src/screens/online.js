@@ -46,13 +46,13 @@ const formatClock = (ms) => {
 };
 
 /** Opens the game `code`, where this device plays `color`. `friendName` when it's a challenge. */
-export async function openOnlineGame(code, color, { friendName = null } = {}) {
+export async function openOnlineGame(code, color, { friendName = null, inviteId = null } = {}) {
   const backend = await getBackend();
   if (!backend) return;
   writeJson("onlineGame", { code, color });
   hooks.onChange();
   if (O) leave();
-  O = { code, color, backend, game: new Chess(), rec: null, token: 0, sending: false, shownResult: false, broken: false, friendName };
+  O = { code, color, backend, game: new Chess(), rec: null, token: 0, sending: false, shownResult: false, broken: false, friendName, inviteId };
   if (currentScreen() !== "play") openScreen("play", { onLeave: leave });
   useMode(mode);
   setTitle("Online game", `Game code ${code}`);
@@ -131,6 +131,7 @@ const mode = {
 // ---------- Keeping in step with the server ----------
 
 function update(rec) {
+  if (O.cancelled) return;
   if (!rec) {
     O.rec = null;
     board.setMovable(null);
@@ -234,7 +235,8 @@ function render() {
       : "<strong>Waiting for your opponent.</strong> Send them this code, or share a link:";
     setMessage(`${lead}<span class="game-code" aria-label="Game code ${O.code.split("").join(" ")}">${O.code}</span>${rec.clock ? `<span class="task-meta">⏱ ${rec.clock / 60000} minutes each</span>` : ""}`);
     setControls([
-      { label: "📋 Copy code", onClick: copyCode },
+      { label: "✕ Cancel", id: "ctl-cancel", ariaLabel: "Cancel game", onClick: cancelGame },
+      { label: "📋 Copy", ariaLabel: "Copy code", onClick: copyCode },
       { label: "📤 Share link", kind: "primary", onClick: shareLink },
     ]);
     return;
@@ -315,6 +317,26 @@ async function shareLink() {
   } catch {
     toast(url);
   }
+}
+
+/** Cancels a game nobody has joined: it's deleted, and any friend challenge is withdrawn. */
+function cancelGame() {
+  confirm("Cancel this game?", "It will be deleted, and nobody will be able to join it with this code.", "Cancel game", async () => {
+    if (!O || O.rec?.status !== "waiting") return;
+    const mine = O;
+    mine.cancelled = true;
+    if (await mine.backend.cancel(mine.code)) {
+      if (mine.inviteId) mine.backend.clearInvite(mine.inviteId);
+      forget(mine.code);
+      backToHome(() => toast("Game cancelled"));
+      return;
+    }
+    mine.cancelled = false;
+    if (O === mine) {
+      update(mine.rec);
+      setMessage(mine.rec?.status === "playing" ? "Your opponent just joined, so the game is on!" : "Couldn't cancel the game. Check your internet connection.", "info");
+    }
+  }, "Keep it");
 }
 
 async function offerDraw() {

@@ -80,6 +80,18 @@ export async function createFirebaseBackend(config, appCheckSiteKey = null, appC
     watch(code, cb) {
       return onValue(gameRef(code), (snapshot) => cb(snapshot.val()), () => cb(null));
     },
+    /** Deletes a game nobody has joined yet. False if someone joined first (or it's gone). */
+    async cancel(code) {
+      try {
+        const outcome = await runTransaction(gameRef(code), (game) => {
+          if (game === null) return null; // not loaded yet: Firebase fetches it and asks again
+          return game.status === "waiting" && colorOf(game, uid) ? null : undefined; // null deletes
+        }, { applyLocally: false });
+        return outcome.committed && !outcome.snapshot.exists();
+      } catch {
+        return false;
+      }
+    },
     move: (code, ply, uci, result) => transact(code, (g) => withMove(g, uid, ply, uci, result, serverNow())),
     finish: (code, result) => transact(code, (g) => withResult(g, uid, result, serverNow())),
     async offerDraw(code, color) {

@@ -237,3 +237,49 @@ test("the daily puzzle shows today's anonymous stats", async ({ page }) => {
   await page.locator("#result-primary").click();
   await expect(page.locator("#daily-status")).toContainText("first to solve it today");
 });
+
+test("a game nobody has joined can be cancelled", async ({ context }) => {
+  const host = await context.newPage();
+  await openApp(host, { clock: false });
+  const code = await createGame(host);
+  await host.locator("#ctl-cancel").click();
+  await expect(host.locator("#confirm-title")).toHaveText("Cancel this game?");
+  await host.locator("#confirm-ok").click();
+  await expect(host.locator("#home")).toBeVisible();
+  await expect(host.locator("#toast")).toContainText("Game cancelled");
+  await expect(host.locator("#continue-online-btn")).toBeHidden();
+  // The code no longer works.
+  const guest = await context.newPage();
+  await openApp(guest, { clock: false });
+  await guest.locator("#online-btn").click();
+  await guest.locator("#online-code").fill(code);
+  await guest.locator("#online-join").click();
+  await expect(guest.locator("#online-error")).toContainText("no game with that code");
+});
+
+test("cancelling a challenge withdraws it from the friend's Home", async ({ context }) => {
+  const friend = { id: "ABCDEFGHJKMNPQRS", name: "Sam", avatar: 1, added: 1 };
+  const host = await context.newPage();
+  await openApp(host, { clock: false, storage: { friends: [friend] } });
+  await host.locator("#online-btn").click();
+  await host.locator("[data-challenge]").click();
+  await expect(host.locator("#message")).toContainText("Waiting for Sam");
+  const guest = await context.newPage();
+  await openApp(guest, { clock: false });
+  await guest.evaluate(() => localStorage.removeItem("chessQuest_onlineGame")); // shared tab storage
+  await guest.reload();
+  await expect(guest.locator("#invite-card")).toBeVisible();
+  await host.locator("#ctl-cancel").click();
+  await host.locator("#confirm-ok").click();
+  await expect(guest.locator("#invite-card")).toBeHidden();
+});
+
+test("keeping the game (Cancel → No) leaves it waiting", async ({ context }) => {
+  const host = await context.newPage();
+  await openApp(host, { clock: false });
+  await createGame(host);
+  await host.locator("#ctl-cancel").click();
+  await expect(host.locator("#confirm-no")).toHaveText("Keep it");
+  await host.locator("#confirm-no").click();
+  await expect(host.locator(".game-code")).toBeVisible();
+});

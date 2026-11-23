@@ -460,10 +460,11 @@ export const setNewGameOpener = (fn) => { openNewGame = fn; };
 byId("menu-new").addEventListener("click", () => closeTopThen(() => openNewGame(isFriend() ? "friend" : "bot")));
 
 let confirmAction = null;
-function confirm(title, text, okLabel, action) {
+function confirm(title, text, okLabel, action, noLabel = "Cancel") {
   byId("confirm-title").textContent = title;
   byId("confirm-text").textContent = text;
   byId("confirm-ok").textContent = okLabel;
+  byId("confirm-no").textContent = noLabel;
   confirmAction = action;
   openOverlay("confirm-overlay", { focus: "#confirm-ok" });
 }
