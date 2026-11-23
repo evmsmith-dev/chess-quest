@@ -12,11 +12,14 @@
     "validate": "node scripts/validate-content.mjs",
     "test:unit": "node --test \"tests/unit/*.test.js\"",
     "test:e2e": "npm run build && playwright test",
-    "test": "npm run validate && npm run test:unit && npm run test:e2e"
+    "test": "npm run validate && npm run test:unit && npm run test:e2e",
+    "test:rules": "firebase emulators:exec --only database --project demo-chess-quest \"node --test tests/rules/\""
   },
   "devDependencies": {
+    "@firebase/rules-unit-testing": "^6.0.0",
     "@playwright/test": "^1.65.1",
-    "esbuild": "^0.28.2"
+    "esbuild": "^0.28.2",
+    "firebase-tools": "^15.37.0"
   },
   "dependencies": {
     "chess.js": "^1.4.0",

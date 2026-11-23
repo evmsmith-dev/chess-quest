@@ -2,7 +2,7 @@
 // announced over a BroadcastChannel, so two tabs in one browser can play each other exactly like
 // two phones would through Firebase. Each tab is its own player (its id is in sessionStorage).
 // It applies the same checks as the server rules, via the shared helpers in common.js.
-import { makeCode, makePairId, newGameRecord, withMove, withJoin, withResult, colorOf, PAIR_LIFETIME_MS } from "./common.js";
+import { makeCode, makePairId, makeSeatKey, seatKey, rememberSeatKey, newGameRecord, withMove, withJoin, withResult, colorOf, PAIR_LIFETIME_MS } from "./common.js";
 
 const STORE = "chessQuest_localServer";
 const channel = typeof BroadcastChannel !== "undefined" ? new BroadcastChannel("chess-quest-online") : null;
@@ -42,6 +42,14 @@ export async function createLocalBackend() {
   let uid = sessionStorage.getItem("chessQuest_localUid");
   if (!uid) { uid = `local-${Math.random().toString(36).slice(2, 10)}`; sessionStorage.setItem("chessQuest_localUid", uid); }
   const presence = [];
+  // Seat keys live apart from games (as in Firebase, where nobody can read them).
+  function saveSeat(code, color) {
+    if (seatKey(code, color)) return;
+    const key = makeSeatKey();
+    const seats = read(`seats:${code}`) || {};
+    write(`seats:${code}`, { ...seats, [color]: { [key]: uid } });
+    rememberSeatKey(code, color, key);
+  }
   addEventListener("pagehide", () => { for (const [code, color] of presence) transact(code, (g) => g && { ...g, presence: { ...g.presence, [color]: false } }); });
   return {
     kind: "local",
@@ -51,6 +59,7 @@ export async function createLocalBackend() {
       let code;
       do code = makeCode(); while (read(code));
       write(code, newGameRecord({ uid, color, avatar, now: Date.now(), minutes }));
+      saveSeat(code, color);
       return code;
     },
     async join(code, avatar) {
@@ -59,6 +68,7 @@ export async function createLocalBackend() {
       const next = withJoin(game, uid, avatar);
       if (!next) throw new Error("full");
       if (next !== game) write(code, next);
+      saveSeat(code, colorOf(next, uid));
       return { color: colorOf(next, uid) };
     },
     watch(code, cb) {
@@ -66,6 +76,19 @@ export async function createLocalBackend() {
       listeners.get(code).add(cb);
       setTimeout(() => cb(read(code)), 0);
       return () => listeners.get(code)?.delete(cb);
+    },
+    /** Takes back `color`'s seat with this device's seat key (after a new player number). */
+    async reclaim(code, color) {
+      const old = seatKey(code, color);
+      const game = read(code);
+      const seats = read(`seats:${code}`) || {};
+      if (!old || !game || !seats[color]?.[old]) return false;
+      if (game.players[color] === uid) return true;
+      const fresh = makeSeatKey();
+      write(`seats:${code}`, { ...seats, [color]: { [fresh]: uid } });
+      write(code, { ...game, players: { ...game.players, [color]: uid }, reclaimWith: old });
+      rememberSeatKey(code, color, fresh);
+      return true;
     },
     async cancel(code) {
       const game = read(code);

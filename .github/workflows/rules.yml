@@ -1,0 +1,33 @@
+# Tests database.rules.json against Firebase's Realtime Database emulator whenever the rules,
+# their tests or the online code change. It doesn't deploy anything: the rules are published by
+# pasting them into the Firebase console (see docs/firebase-setup.md).
+name: Database rules
+
+on:
+  push:
+    branches: [main]
+    paths: ["database.rules.json", "tests/rules/**", "src/online/**", "firebase.json", ".github/workflows/rules.yml"]
+  pull_request:
+    paths: ["database.rules.json", "tests/rules/**", "src/online/**", "firebase.json", ".github/workflows/rules.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  rules:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+      - run: npm ci
+      - name: Test the database rules in the emulator
+        run: npm run test:rules

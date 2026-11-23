@@ -17,7 +17,15 @@
 //   time: { w, b },            // with a clock: each player's time left (ms) as of lastMoveAt
 //   lastMoveAt,                // with a clock: when the last move was made (server time, ms)
 //   friendPair,                // optional: the friend link both players can save (see below)
+//   reclaimWith,               // the used-up seat key of the last seat reclaim (see below)
 // }
+//
+// Seat keys: Firebase deletes anonymous player numbers after 30 days, and a player who comes
+// back with a new number would no longer own their seat. So each player's device keeps a private
+// seat key per game (localStorage "seatKeys"); the server keeps it at seats/{code}/{color}/{key},
+// where nobody can read it. To reclaim a seat, the device writes its new number into the game,
+// names the old key (reclaimWith) and deletes it, and adds a fresh key, all in one write. The
+// rules accept that only if the named key existed and is gone afterwards, so a key works once.
 //
 // Friend links live at pairs/{id}: { expires, invite: { code, by, at } }. Only the two devices
 // that saved the link know its 16-character id; a challenge writes the new game's code there.
@@ -47,6 +55,7 @@ export const GAME_LIFETIME_MS = GAME_DAYS * 24 * 60 * 60 * 1000;
 const CODE_LETTERS = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
 export const CODE_LENGTH = 6;
 export const PAIR_LENGTH = 16;
+export const SEAT_KEY_LENGTH = 24;
 export const CLOCK_CHOICES = [0, 5, 10, 15]; // minutes; 0 = no clock
 export const PAIR_LIFETIME_MS = 60 * 24 * 60 * 60 * 1000; // friend links unused for 60 days are removed
 export const INVITE_FRESH_MS = 30 * 60 * 1000; // a challenge shows on Home for 30 minutes
@@ -62,6 +71,25 @@ export function makePairId(random = Math.random) {
   let id = "";
   for (let i = 0; i < PAIR_LENGTH; i++) id += CODE_LETTERS[Math.floor(random() * CODE_LETTERS.length)];
   return id;
+}
+
+/** A random seat key, from the browser's secure random numbers. */
+export function makeSeatKey() {
+  const bytes = crypto.getRandomValues(new Uint32Array(SEAT_KEY_LENGTH));
+  return Array.from(bytes, (n) => CODE_LETTERS[n % CODE_LETTERS.length]).join("");
+}
+
+// This device's seat keys: { code: { w?: key, b?: key } }. Kept until the game is deleted.
+const SEAT_STORE = "chessQuest_seatKeys";
+const readSeats = () => { try { return JSON.parse(localStorage.getItem(SEAT_STORE)) || {}; } catch { return {}; } };
+export const seatKey = (code, color) => readSeats()[code]?.[color] || null;
+export function rememberSeatKey(code, color, key) {
+  const all = readSeats();
+  all[code] = { ...all[code], [color]: key };
+  // Games last 7 days; keep the 50 newest codes so this never grows without limit.
+  const codes = Object.keys(all);
+  for (const old of codes.slice(0, Math.max(0, codes.length - 50))) delete all[old];
+  localStorage.setItem(SEAT_STORE, JSON.stringify(all));
 }
 
 /** Tidies what someone typed: "k7q f2m" → "K7QF2M". Returns null if it can't be a code. */

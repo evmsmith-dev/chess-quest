@@ -141,6 +141,15 @@ function update(rec) {
     return;
   }
   O.rec = rec;
+  // This device's seat now shows a different player number: Firebase replaced ours (after 30
+  // days). Take the seat back with the seat key, once; the next update shows the result.
+  if (rec.players?.[O.color] && rec.players[O.color] !== O.backend.uid && rec.status !== "over") {
+    if (!O.reclaiming) {
+      O.reclaiming = "trying";
+      const mine = O;
+      O.backend.reclaim(O.code, O.color).then((ok) => { if (O === mine) { mine.reclaiming = ok ? null : "failed"; render(); } });
+    }
+  }
   syncMoves(moveList(rec));
   render();
   if (rec.status === "over" && !O.shownResult) finished();
@@ -224,6 +233,14 @@ function render() {
   board.setMovable(!O.broken && !O.sending && myTurn() ? O.color : null);
   byId("offer").hidden = !(rec.status === "playing" && rec.drawOffer === opp);
 
+  if (O.reclaiming) {
+    board.setMovable(null);
+    setMessage(O.reclaiming === "failed"
+      ? "This device can't take part in this game any more (its player number changed and the seat couldn't be reclaimed). Start a new game from Home."
+      : "Reconnecting you to your seat…", O.reclaiming === "failed" ? "bad" : "info");
+    setControls([{ label: "🏠 Home", onClick: () => backToHome() }]);
+    return;
+  }
   if (O.broken) {
     setMessage("Your opponent's app sent a move that isn't legal, so this game can't continue.", "bad");
     setControls([{ label: "🏠 Home", onClick: () => backToHome() }]);
