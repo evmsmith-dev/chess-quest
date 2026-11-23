@@ -9,7 +9,7 @@ import { readJson, writeJson } from "../storage.js";
 import { play } from "../ui/audio.js";
 import { buzz } from "../ui/haptics.js";
 import { getBackend } from "../online/backend.js";
-import { moveList, GAME_DAYS } from "../online/common.js";
+import { moveList, GAME_DAYS, avatarOf } from "../online/common.js";
 import { confirm } from "./game.js";
 
 const byId = (id) => document.getElementById(id);
@@ -174,8 +174,8 @@ function render() {
   const away = rec.status === "playing" && rec.presence?.[opp] === false;
   const oppStatus = rec.status === "waiting" ? "not joined yet" : away ? "offline" : rec.status === "playing" && game.turn() === opp ? '<span class="thinking">thinking</span>' : "";
   setBars(
-    { name: rec.players?.[opp] ? "Opponent" : "Waiting…", emoji: rec.avatars?.[opp] || "❔", captured: caps[opp], color: opp, plus: plus(opp), status: oppStatus },
-    { name: "You", emoji: rec.avatars?.[O.color] || "🙂", captured: caps[O.color], color: O.color, plus: plus(O.color), status: O.sending ? "sending…" : "" },
+    { name: rec.players?.[opp] ? "Opponent" : "Waiting…", emoji: rec.players?.[opp] ? avatarOf(rec, opp) : "❔", captured: caps[opp], color: opp, plus: plus(opp), status: oppStatus },
+    { name: "You", emoji: avatarOf(rec, O.color), captured: caps[O.color], color: O.color, plus: plus(O.color), status: O.sending ? "sending…" : "" },
   );
   const history = game.history({ verbose: true });
   const last = history[history.length - 1];
@@ -299,7 +299,7 @@ function resign() {
 
 async function startRematch() {
   if (!O) return;
-  const avatar = O.rec.avatars?.[O.color] || "🙂";
+  const avatar = avatarOf(O.rec, O.color);
   const color = opponent(); // swap sides
   const old = O.code;
   try {
@@ -319,7 +319,7 @@ async function startRematch() {
 async function joinRematch(code) {
   if (!O) return;
   try {
-    const { color } = await O.backend.join(code, O.rec.avatars?.[O.color] || "🙂");
+    const { color } = await O.backend.join(code, avatarOf(O.rec, O.color));
     openOnlineGame(code, color);
   } catch {
     setMessage("Couldn't join the rematch.", "bad");

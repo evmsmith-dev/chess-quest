@@ -306,3 +306,37 @@ test("a bot game and a two-player game are saved separately", async ({ page }) =
   await expect(page.locator("#continue-btn")).toBeVisible();
   await expect(page.locator("#continue-friend-btn")).toBeVisible();
 });
+
+test("the built page has a Content Security Policy and nothing breaks it", async ({ page, context }) => {
+  await page.addInitScript(() => {
+    window.__csp = [];
+    document.addEventListener("securitypolicyviolation", (e) => window.__csp.push(`${e.violatedDirective} ${e.blockedURI}`));
+  });
+  await openApp(page);
+  const csp = await page.locator('meta[http-equiv="Content-Security-Policy"]').getAttribute("content");
+  expect(csp).toContain("object-src 'none'");
+  // Visit everything: a game, a lesson, a puzzle, the rulebook, settings and an online game.
+  await page.locator("#new-game-btn").click();
+  await page.locator("#start-game-btn").click();
+  await tapMove(page, "e2", "e4");
+  await page.clock.runFor(3000);
+  await page.goBack();
+  await page.locator("#learn-btn").click();
+  await page.locator('[data-lesson="board"]').click();
+  await page.locator("#tip-overlay .primary").click();
+  await page.goBack();
+  await page.goBack();
+  await page.locator("#challenges-btn").click();
+  await page.locator('[data-set="mate1"]').click();
+  await page.goBack();
+  await page.goBack();
+  await page.locator("#rules-btn").click();
+  await page.goBack();
+  await page.locator("#settings-btn").click();
+  await page.keyboard.press("Escape");
+  await page.locator("#online-btn").click();
+  await page.locator("#online-create").click();
+  await expect(page.locator(".game-code")).toBeVisible();
+  expect(await page.evaluate(() => window.__csp)).toEqual([]);
+  void context;
+});

@@ -47,7 +47,7 @@ export function resumeGame(kind = "bot") {
 
 /** The color whose pieces can move now: yours against the bot, whoever's turn it is with a friend. */
 const moverColor = () => (isFriend() ? g.game.turn() : g.color);
-const nameOf = (color) => g.names?.[color] || (color === "w" ? "White" : "Black");
+const nameOf = (color) => String(g.names?.[color] || (color === "w" ? "White" : "Black")).replace(/[<>&"'`]/g, "");
 const sideWord = (color) => (color === "w" ? "White" : "Black");
 /** "Alex (White)", or just "White" when the player kept the default name. */
 const label = (color) => (nameOf(color) === sideWord(color) ? sideWord(color) : `${nameOf(color)} (${sideWord(color)})`);

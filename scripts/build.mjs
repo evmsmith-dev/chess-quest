@@ -75,6 +75,26 @@ const swap = (from, to) => {
 swap('<link rel="stylesheet" href="src/styles.css">', '<link rel="stylesheet" href="app.css">');
 swap('<script type="module" src="src/main.js"></script>', '<script type="module" src="app.js"></script>');
 html = html.replace(/\s*<script type="importmap">[\s\S]*?<\/script>/, "");
+
+// Content Security Policy: the browser runs only this site's code (plus the one inline theme
+// script, allowed by its hash) and talks only to Firebase and reCAPTCHA. A safety net if anything
+// unexpected ever got onto the page. GitHub Pages can't send headers, so it's a <meta> tag.
+const inlineScripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => `'sha256-${createHash("sha256").update(m[1]).digest("base64")}'`);
+const CSP = [
+  "default-src 'self'",
+  `script-src 'self' ${inlineScripts.join(" ")} https://www.google.com/recaptcha/ https://www.gstatic.com/recaptcha/ https://*.firebaseio.com`,
+  "connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://*.firebasedatabase.app wss://*.firebasedatabase.app https://www.google.com",
+  "frame-src https://www.google.com https://recaptcha.google.com https://*.firebaseapp.com",
+  "img-src 'self' data:",
+  "style-src 'self' 'unsafe-inline'",
+  "font-src 'self'",
+  "worker-src 'self'",
+  "manifest-src 'self'",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'none'",
+].join("; ");
+swap('<meta charset="UTF-8">', `<meta charset="UTF-8">\n  <meta http-equiv="Content-Security-Policy" content="${CSP}">`);
 html = html.replace(/<!--(?!\s*\[if)[\s\S]*?-->/g, "").replace(/\n\s*\n+/g, "\n");
 await writeFile(join(DIST, "index.html"), html);
 

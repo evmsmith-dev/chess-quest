@@ -21,8 +21,8 @@
           "$other": { ".validate": false }
         },
         "avatars": {
-          "w": { ".validate": "newData.isString() && newData.val().length <= 8 && (!data.exists() || newData.val() === data.val())" },
-          "b": { ".validate": "newData.isString() && newData.val().length <= 8 && (!data.exists() || newData.val() === data.val())" },
+          "w": { ".validate": "(newData.isNumber() && newData.val() >= 0 && newData.val() <= 11 && newData.val() % 1 === 0 && (!data.exists() || newData.val() === data.val())) || (data.exists() && newData.val() === data.val())" },
+          "b": { ".validate": "(newData.isNumber() && newData.val() >= 0 && newData.val() <= 11 && newData.val() % 1 === 0 && (!data.exists() || newData.val() === data.val())) || (data.exists() && newData.val() === data.val())" },
           "$other": { ".validate": false }
         },
         "moves": {
@@ -35,7 +35,7 @@
           ".validate": "newData.isString() && ((!data.exists() && newData.val() === 'waiting') || newData.val() === data.val() || (data.val() === 'waiting' && newData.val() === 'playing' && newData.parent().child('players/w').exists() && newData.parent().child('players/b').exists()) || (data.val() === 'playing' && newData.val() === 'over' && newData.parent().child('result').exists()))"
         },
         "result": {
-          ".validate": "newData.hasChildren(['winner', 'reason']) && newData.parent().child('status').val() === 'over'",
+          ".validate": "newData.hasChildren(['winner', 'reason']) && newData.parent().child('status').val() === 'over' && (data.exists() || (newData.child('reason').val() === 'resigned' && ((newData.child('winner').val() === 'w' && auth.uid === data.parent().child('players/b').val()) || (newData.child('winner').val() === 'b' && auth.uid === data.parent().child('players/w').val()))) || (newData.child('reason').val() === 'agreed' && newData.child('winner').val() === 'draw' && ((data.parent().child('drawOffer').val() === 'w' && auth.uid === data.parent().child('players/b').val()) || (data.parent().child('drawOffer').val() === 'b' && auth.uid === data.parent().child('players/w').val()))) || (newData.child('reason').val() === 'checkmate' && newData.parent().child('ply').val() === data.parent().child('ply').val() + 1 && ((data.parent().child('ply').val() % 2 === 0 && newData.child('winner').val() === 'w') || (!(data.parent().child('ply').val() % 2 === 0) && newData.child('winner').val() === 'b'))) || ((newData.child('reason').val() === 'stalemate' || newData.child('reason').val() === 'insufficient' || newData.child('reason').val() === 'repetition' || newData.child('reason').val() === 'fifty') && newData.parent().child('ply').val() === data.parent().child('ply').val() + 1 && newData.child('winner').val() === 'draw'))",
           "winner": { ".validate": "newData.isString() && newData.val().matches(/^(w|b|draw)$/) && (!data.exists() || newData.val() === data.val())" },
           "reason": { ".validate": "newData.isString() && newData.val().matches(/^(checkmate|stalemate|insufficient|repetition|fifty|agreed|resigned)$/) && (!data.exists() || newData.val() === data.val())" },
           "$other": { ".validate": false }

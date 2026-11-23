@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { makeCode, cleanCode, newGameRecord, withMove, withJoin, withResult, turnOf, CODE_LENGTH } from "../../src/online/common.js";
+import { makeCode, cleanCode, newGameRecord, withMove, withJoin, withResult, turnOf, avatarOf, AVATARS, CODE_LENGTH } from "../../src/online/common.js";
 
 test("game codes", () => {
   for (let i = 0; i < 200; i++) {
@@ -42,6 +42,30 @@ test("the Firebase config is filled in and complete", async () => {
   assert.match(FIREBASE_CONFIG.databaseURL, /^https:\/\/.+(firebaseio\.com|firebasedatabase\.app)/);
   const { APP_CHECK_SITE_KEY } = await import("../../src/online/config.js");
   assert.ok(APP_CHECK_SITE_KEY === null || (typeof APP_CHECK_SITE_KEY === "string" && APP_CHECK_SITE_KEY.length > 20), "App Check key is null or a site key");
+});
+
+test("avatars are stored as numbers and only ever shown from the list", () => {
+  const g = withJoin(newGameRecord({ uid: "A", color: "w", avatar: "🐯", now: Date.now() }), "B", "<b>hi</b>");
+  assert.equal(g.avatars.w, AVATARS.indexOf("🐯"));
+  assert.equal(g.avatars.b, 0, "anything not on the list is stored as the first avatar");
+  assert.equal(avatarOf(g, "w"), "🐯");
+  assert.equal(avatarOf({ avatars: { w: "<img src=x onerror=alert(1)>" } }, "w"), "❔");
+  assert.equal(avatarOf({ avatars: { w: 99 } }, "w"), "❔");
+  assert.equal(avatarOf({ avatars: { w: "🦉" } }, "w"), "🦉", "older games stored the emoji");
+});
+
+test("results: resigning, accepting draws and game-ending moves are checked", () => {
+  const playing = withJoin(newGameRecord({ uid: "A", color: "w", avatar: "🦊", now: Date.now() }), "B", "🐼");
+  assert.equal(withResult(playing, "A", { winner: "w", reason: "resigned" }), null, "you can't resign and win");
+  assert.ok(withResult(playing, "A", { winner: "b", reason: "resigned" }));
+  assert.equal(withResult(playing, "A", { winner: "draw", reason: "agreed" }), null, "no draw without an offer");
+  assert.equal(withResult({ ...playing, drawOffer: "w" }, "A", { winner: "draw", reason: "agreed" }), null, "you can't accept your own offer");
+  assert.ok(withResult({ ...playing, drawOffer: "b" }, "A", { winner: "draw", reason: "agreed" }));
+  assert.equal(withResult(playing, "A", { winner: "w", reason: "checkmate" }), null, "checkmate only comes with a move");
+  assert.equal(withMove(playing, "A", 0, "e2e4", { winner: "b", reason: "checkmate" }), null, "the mover wins a checkmate");
+  assert.ok(withMove(playing, "A", 0, "e2e4", { winner: "w", reason: "checkmate" }));
+  assert.equal(withMove(playing, "A", 0, "e2e4", { winner: "w", reason: "stalemate" }), null, "stalemate is a draw");
+  assert.ok(withMove(playing, "A", 0, "e2e4", { winner: "draw", reason: "stalemate" }));
 });
 
 test("database rules file is valid and locked down by default", () => {

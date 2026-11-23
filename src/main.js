@@ -223,7 +223,9 @@ byId("swap-names").addEventListener("click", () => {
 byId("name-w").addEventListener("keydown", (e) => { if (e.key === "Enter") byId("name-b").focus(); });
 byId("name-b").addEventListener("keydown", (e) => { if (e.key === "Enter") byId("start-friend-btn").click(); });
 byId("start-friend-btn").addEventListener("click", () => {
-  const typed = { w: byId("name-w").value.trim(), b: byId("name-b").value.trim() };
+  // Names only ever appear on this device, but keep them to plain text anyway.
+  const plain = (text) => text.replace(/[<>&"'`]/g, "").trim();
+  const typed = { w: plain(byId("name-w").value), b: plain(byId("name-b").value) };
   const prefs = { names: typed, autoFlip: byId("opt-autoflip").checked, undo: byId("opt-friend-undo").checked };
   writeJson("friendPrefs", prefs);
   const names = { w: typed.w || "White", b: typed.b || "Black" };
