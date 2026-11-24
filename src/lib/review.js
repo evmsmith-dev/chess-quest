@@ -40,6 +40,73 @@ const moveNumber = (fen) => Number(fen.split(" ")[5]) || 1;
 const isMate = (score) => score > MATE_ZONE;
 const isMated = (score) => score < -MATE_ZONE;
 const points = (cp) => Math.max(1, Math.round(cp / 100));
+/**
+ * The mating side's moves to checkmate from a mate score (mover's view, counted in plies from
+ * the position): MATE - 1 is mate in one, MATE - 3 in two; -MATE + 2 is being mated in one.
+ */
+export const mateMoves = (score) => (score > 0 ? (MATE - score + 1) / 2 : (MATE + score) / 2);
+const LINE_MAX = 2; // forced lines are worked out in full for mates in up to this many moves
+
+/** True if `m` (already legal in pos) forces mate within `n` of the mover's moves. */
+function forcesMate(pos, m, n) {
+  pos.make(m);
+  let forced;
+  const replies = pos.legalMoves();
+  if (!replies.length) forced = pos.inCheck();
+  else if (n <= 1) forced = false;
+  else {
+    forced = true;
+    for (const r of replies) {
+      pos.make(r);
+      const ok = pos.legalMoves().some((x) => forcesMate(pos, x, n - 1));
+      pos.unmake();
+      if (!ok) { forced = false; break; }
+    }
+  }
+  pos.unmake();
+  return forced;
+}
+
+/**
+ * The forced checkmate starting with `first`, as UCI moves, with the defender choosing the
+ * reply that lasts longest. `n` is the number of moves to mate. Null if it can't be shown.
+ */
+export function mateLine(fen, first, n) {
+  if (n < 1 || n > LINE_MAX) return null;
+  const pos = new Position(fen);
+  const find = (uci) => pos.legalMoves().find((x) => uciString(x) === uci);
+  const m = find(first);
+  if (!m || !forcesMate(pos, m, n)) return null;
+  const line = [first];
+  pos.make(m);
+  for (let left = n - 1; left > 0; left--) {
+    const replies = pos.legalMoves();
+    if (!replies.length) break;
+    // The reply that holds out longest, then the attacker's quickest mate after it.
+    let pick = null;
+    for (const r of replies) {
+      pos.make(r);
+      let need = 1;
+      while (need < left && !pos.legalMoves().some((x) => forcesMate(pos, x, need))) need++;
+      const answer = pos.legalMoves().find((x) => forcesMate(pos, x, need));
+      pos.unmake();
+      if (!pick || need > pick.need) pick = { r, need, answer };
+    }
+    if (!pick?.answer) return null;
+    line.push(uciString(pick.r));
+    pos.make(pick.r);
+    line.push(uciString(pick.answer));
+    pos.make(pick.answer);
+    left = pick.need;
+  }
+  return line;
+}
+
+/** SAN for a line of UCI moves from `fen`. */
+function lineSan(fen, line) {
+  const game = new Chess(fen);
+  return line.map((uci) => game.move({ from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: uci[4] }).san);
+}
 
 /**
  * Judges one move. `scores` is scorePosition() for the position before it. `names` gives
@@ -64,12 +131,17 @@ export function classify({ ply, fen, uci, color }, scores, names = { you: "You",
 
   const bestSan = san(fen, best.uci);
   const playedSan = san(fen, uci);
-  const text = explain({ kind, fen, uci, best, loss, bestSan, color, names });
+  let line = null;
+  if (kind === "missed-mate") line = mateLine(fen, best.uci, mateMoves(best.score));
+  const text = explain({ kind, fen, uci, best, played, loss, bestSan, color, names, line });
   return {
     ply, fen, color, kind, severity,
     number: moveNumber(fen),
     played: uci, playedSan,
     best: best.uci, bestSan,
+    mateIn: kind === "missed-mate" ? mateMoves(best.score) : null,
+    line, // the forced mate in full (missed checkmates in up to two moves), else null
+    lineSan: line ? lineSan(fen, line) : null,
     // Moves as good as the best (within GOOD_ENOUGH), for "try to find a better move".
     good: scores.filter((s) => s.score >= best.score - GOOD_ENOUGH && !(isMate(best.score) && !isMate(s.score))).map((s) => s.uci),
     scores: Object.fromEntries(scores.map((s) => [s.uci, s.score])),
@@ -77,14 +149,26 @@ export function classify({ ply, fen, uci, color }, scores, names = { you: "You",
   };
 }
 
-function explain({ kind, fen, uci, best, loss, bestSan, color, names }) {
+function explain({ kind, fen, uci, best, played, loss, bestSan, color, names, line }) {
   const { you, them } = names;
   const side = color === "w" ? 0 : 1;
   if (kind === "missed-mate") {
-    const inOne = best.score === MATE - 1;
-    return inOne ? `${you} had checkmate in one: ${bestSan}!` : `${you} had a forced checkmate, starting with ${bestSan}.`;
+    const n = mateMoves(best.score);
+    if (n === 1) return `${you} had checkmate in one: ${bestSan}!`;
+    if (line?.length === 3) {
+      const [first, reply, mate] = lineSan(fen, line);
+      const game = new Chess(fen);
+      game.move({ from: line[0].slice(0, 2), to: line[0].slice(2, 4), promotion: line[0][4] });
+      const other = color === "w" ? "Black" : "White";
+      const only = game.moves().length === 1;
+      return `${you} had checkmate in 2. After ${first}, ${only ? `${other}'s only move is ${reply}` : `${other}'s best try is ${reply}`}, and then ${mate.replace("#", "")} is checkmate.`;
+    }
+    return `${you} had a forced checkmate in ${n} moves, starting with ${bestSan}.`;
   }
-  if (kind === "allowed-mate") return `This let ${them} force checkmate. ${bestSan} was safer.`;
+  if (kind === "allowed-mate") {
+    const n = mateMoves(played.score);
+    return `This let ${them} force checkmate${n > 1 ? ` in ${n} moves` : " right away"}. ${bestSan} was safer.`;
+  }
 
   // Did the move leave a piece where it could be won? Did the best move win something?
   // When both, say the bigger one first.

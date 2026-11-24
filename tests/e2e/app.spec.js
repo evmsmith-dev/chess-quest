@@ -385,6 +385,40 @@ test("two-player review covers both sides and finds the allowed mate", async ({ 
   await expect(page.locator("#message")).toContainText(/That's it|works too/);
 });
 
+test("a missed mate in two is explained, shown in full, and can be finished in Try it", async ({ page }) => {
+  await openApp(page);
+  await page.locator("#friend-btn").click();
+  await page.locator("#opt-autoflip").uncheck();
+  await page.locator("#start-friend-btn").click();
+  // After 3.Nc3, Black has Qh4+ g3 Qxg3#, but plays a5 instead.
+  for (const [a, b] of [["f2", "f3"], ["a7", "a6"], ["h2", "h3"], ["e7", "e5"], ["b1", "c3"], ["a6", "a5"]]) await tapMove(page, a, b);
+  await page.getByRole("button", { name: "Game menu" }).click();
+  await page.locator("#menu-resign").click();
+  await page.locator("#confirm-ok").click();
+  await page.clock.runFor(1500);
+  await page.locator("#result-secondary").click();
+  await page.clock.runFor(20000);
+  await expect(page.locator(".moment-chip").first()).toBeVisible({ timeout: 20000 });
+  await page.locator(".moment-chip", { hasText: "Move 3…" }).click();
+  await expect(page.locator("#message")).toContainText("checkmate in 2. After Qh4+, White's only move is g3, and then Qxg3 is checkmate");
+  await page.locator("#ctl-show").click();
+  await expect(page.locator("#message")).toContainText("Better: 3… Qh4+ 4. g3 Qxg3#");
+  await page.clock.runFor(4000);
+  await expect.poll(() => pieceOn(page, "g3")).toBe("bq");
+  // Try it: find the first move, watch the reply, then finish the mate.
+  await page.locator("#ctl-try").click();
+  await expect(page.locator("#message")).toContainText("Find the checkmate in 2");
+  await tapMove(page, "d8", "h4");
+  await expect(page.locator("#message")).toContainText("Yes, Qh4+");
+  await page.clock.runFor(1000);
+  await expect(page.locator("#message")).toContainText("White played g3, the only move. Now finish it");
+  await tapMove(page, "h4", "h3");
+  await expect(page.locator("#message")).toContainText("isn't checkmate");
+  await page.clock.runFor(1000);
+  await tapMove(page, "h4", "g3");
+  await expect(page.locator("#message")).toContainText("Checkmate: Qxg3#");
+});
+
 test("a game with no big mistakes says so", async ({ page }) => {
   await openApp(page);
   await page.locator("#friend-btn").click();

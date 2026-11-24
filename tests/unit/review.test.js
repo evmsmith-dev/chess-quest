@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { Searcher } from "../../src/chess/engine.js";
-import { scorePosition, reviewPositions, classify, pickMoments, judgeTry } from "../../src/lib/review.js";
+import { scorePosition, reviewPositions, classify, pickMoments, judgeTry, mateLine, mateMoves } from "../../src/lib/review.js";
 
 const searcher = new Searcher();
 const names = { you: "You", them: "the bot" };
@@ -12,6 +12,25 @@ test("a missed mate in one is found and explained", () => {
   assert.equal(m.kind, "missed-mate");
   assert.match(m.text, /checkmate in one: Ra8#/);
   assert.equal(m.best, "a1a8");
+});
+
+test("a missed mate in two says so and gives the whole line", () => {
+  // From a real game: Qf7+ leaves only Kd8, then Qe8 is checkmate.
+  const fen = "r1b2b1r/2qpk3/3N3p/pPp1pP2/P1Q1NnP1/1P1P1P2/8/R1K2B1R w - - 0 30";
+  const m = review(fen, "f5f6");
+  assert.equal(m.kind, "missed-mate");
+  assert.equal(m.mateIn, 2);
+  assert.deepEqual(m.line, ["c4f7", "e7d8", "f7e8"]);
+  assert.deepEqual(m.lineSan, ["Qf7+", "Kd8", "Qe8#"]);
+  assert.match(m.text, /checkmate in 2\. After Qf7\+, Black's only move is Kd8, and then Qe8 is checkmate/);
+});
+
+test("mate scores convert to moves, and a line that isn't forced is refused", () => {
+  assert.equal(mateMoves(99999), 1);
+  assert.equal(mateMoves(99997), 2);
+  assert.equal(mateMoves(-99998), 1);
+  assert.equal(mateLine("6k1/5ppp/8/8/8/8/8/R5K1 w - - 0 1", "a1a7", 1), null);
+  assert.deepEqual(mateLine("6k1/5ppp/8/8/8/8/8/R5K1 w - - 0 1", "a1a8", 1), ["a1a8"]);
 });
 
 test("leaving a piece where it can be taken is explained", () => {
