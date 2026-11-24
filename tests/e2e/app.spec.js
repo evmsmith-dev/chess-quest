@@ -550,3 +550,10 @@ test("after collecting the stars the long way, Restart is offered", async ({ pag
   await expect.poll(() => pieceOn(page, "e3")).toBe("wk");
   await expect(page.locator("#ctl-next")).toHaveCount(0);
 });
+
+test("the black king is drawn black (its white lines aren't filled in)", async ({ page }) => {
+  await openApp(page);
+  const fills = await page.evaluate(() => [...document.querySelectorAll('#bk path[stroke="#FFFFFF"]')].map((p) => getComputedStyle(p).fill));
+  expect(fills.length).toBeGreaterThan(0);
+  for (const fill of fills) expect(fill).toBe("none");
+});

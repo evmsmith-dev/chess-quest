@@ -392,3 +392,17 @@ test("'Your move' alerts can be turned off in Settings", async ({ context }) => 
   await expect.poll(() => pieceOn(guest, "e4")).toBe("wp");
   await expect(guest).toHaveTitle("Chess Quest");
 });
+
+test("on a shorter iPad, the game code stays inside its box and the buttons stay on screen", async ({ page }) => {
+  await page.setViewportSize({ width: 768, height: 1024 });
+  await openApp(page, { clock: false });
+  await createGame(page, "b");
+  const box = await page.evaluate(() => {
+    const m = document.getElementById("message").getBoundingClientRect();
+    const c = document.querySelector("#message .game-code").getBoundingClientRect();
+    const k = document.getElementById("controls").getBoundingClientRect();
+    return { inside: c.bottom <= m.bottom + 0.5 && c.top >= m.top, controlsBottom: k.bottom, height: innerHeight };
+  });
+  expect(box.inside).toBe(true);
+  expect(box.controlsBottom).toBeLessThanOrEqual(box.height);
+});
