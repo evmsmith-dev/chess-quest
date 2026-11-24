@@ -85,6 +85,7 @@ byId("move-list").addEventListener("click", (e) => {
 function select(index) {
   R.index = index;
   R.trying = false;
+  R.step = 0;
   R.token++;
   const m = R.moments[index];
   R.game = new Chess(m.fen);
@@ -112,33 +113,76 @@ function controls() {
 function tryIt() {
   const m = R.moments[R.index];
   R.trying = true;
+  R.step = 0;
   R.token++;
   R.game = new Chess(m.fen);
   board.setPieces(piecesFromFen(m.fen), { animate: false });
   board.setHighlights({ check: checkSquare(R.game) });
   board.setMovable(m.color);
   const side = m.color === "w" ? "White" : "Black";
-  setMessage(`🎯 <strong>Your turn as ${side}.</strong> Find a better move than ${m.playedSan}.`);
+  const goal = m.mateIn ? `Find the checkmate${m.mateIn > 1 ? ` in ${m.mateIn}` : ""}! (${m.playedSan} missed it.)` : `Find a better move than ${m.playedSan}.`;
+  setMessage(`🎯 <strong>Your turn as ${side}.</strong> ${goal}`);
   controls();
 }
 
 function showBest() {
   const m = R.moments[R.index];
   R.trying = false;
+  R.step = 0;
   R.token++;
   const game = new Chess(m.fen);
   board.setPieces(piecesFromFen(m.fen), { animate: false });
   board.setMovable(null);
-  const move = game.move({ from: m.best.slice(0, 2), to: m.best.slice(2, 4), promotion: m.best[4] });
+  const line = m.line || [m.best];
+  const token = R.token;
+  // Plays the line one move at a time, so a forced checkmate can be followed to the end.
+  line.forEach((uci, i) => {
+    setTimeout(() => {
+      if (!R || R.token !== token) return;
+      const move = game.move({ from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: uci[4] });
+      board.setPieces(piecesFromFen(game.fen()), { moves: animationFor(move) });
+      board.setHighlights({ lastMove: [move.from, move.to], good: move.color === m.color ? move.to : null, check: checkSquare(game) });
+      feelMove(move, game.inCheck());
+    }, 150 + i * 1100);
+  });
+  const shown = m.lineSan ? lineText(m) : m.bestSan;
+  setMessage(`💡 <strong>Better: ${shown}</strong><span class="review-text">${m.text}</span>`, "good");
+  controls();
+}
+
+/** "1. Qf7+ Kd8 2. Qe8#" for a moment's forced line. */
+function lineText(m) {
+  let n = m.number;
+  return m.lineSan.map((san, i) => {
+    const mover = (m.color === "w") === (i % 2 === 0) ? "w" : "b";
+    const text = mover === "w" ? `${n}. ${san}` : i === 0 ? `${n}… ${san}` : san;
+    if (mover === "b") n++;
+    return text;
+  }).join(" ");
+}
+
+/** A wrong try: say why, then take the move back so the player can try again. */
+function wrongTry(m, move, text) {
+  board.setMovable(null);
+  board.setHighlights({ lastMove: [move.from, move.to], bad: move.to, check: checkSquare(R.game) });
+  play("wrong");
+  buzz("wrong");
+  setMessage(text, "bad");
   const token = R.token;
   setTimeout(() => {
     if (!R || R.token !== token) return;
-    board.setPieces(piecesFromFen(game.fen()), { moves: animationFor(move) });
-    board.setHighlights({ lastMove: [move.from, move.to], good: move.to, check: checkSquare(game) });
-    feelMove(move, game.inCheck());
-  }, 150);
-  setMessage(`💡 <strong>Better: ${m.bestSan}</strong><span class="review-text">${m.text}</span>`, "good");
-  controls();
+    R.game.undo();
+    board.setPieces(piecesFromFen(R.game.fen()), { moves: animationFor(move).map(([a, b]) => [b, a]) });
+    board.setHighlights({ check: checkSquare(R.game) });
+    board.setMovable(m.color);
+  }, 900);
+}
+
+/** True if the first move of the moment's line leaves the opponent just one reply. */
+function onlyReply(m) {
+  const game = new Chess(m.fen);
+  game.move({ from: m.line[0].slice(0, 2), to: m.line[0].slice(2, 4), promotion: m.line[0][4] });
+  return game.moves().length === 1;
 }
 
 const mode = {
@@ -155,7 +199,43 @@ const mode = {
     const uci = from + to + (move.promotion || "");
     board.setPieces(piecesFromFen(R.game.fen()), { moves: animationFor(move) });
     feelMove(move, R.game.inCheck());
+    // Finishing a forced checkmate: any move that mates counts.
+    if (R.step > 0) {
+      if (R.game.isCheckmate()) {
+        R.trying = false;
+        board.setMovable(null);
+        board.setHighlights({ lastMove: [from, to], good: to, check: checkSquare(R.game) });
+        play("correct");
+        buzz("win");
+        setMessage(`✅ <strong>Checkmate: ${move.san}!</strong> You found the whole combination.`, "good");
+        controls();
+        return;
+      }
+      wrongTry(m, move, `❌ ${move.san} isn't checkmate. Look for a move that leaves the king no escape, or tap 💡 Show.`);
+      return;
+    }
     const result = judgeTry(m, uci);
+    if (result.verdict !== "worse" && m.line?.length > 1 && uci === m.line[0]) {
+      // Right first move of a longer mate: the opponent answers, then the player finishes it.
+      board.setMovable(null);
+      board.setHighlights({ lastMove: [from, to], good: to, check: checkSquare(R.game) });
+      play("correct");
+      const reply = m.line[1];
+      const other = m.color === "w" ? "Black" : "White";
+      setMessage(`✅ <strong>Yes, ${move.san}!</strong> Now watch ${other}'s reply…`, "good");
+      const token = R.token;
+      setTimeout(() => {
+        if (!R || R.token !== token) return;
+        const answer = R.game.move({ from: reply.slice(0, 2), to: reply.slice(2, 4), promotion: reply[4] });
+        board.setPieces(piecesFromFen(R.game.fen()), { moves: animationFor(answer) });
+        board.setHighlights({ lastMove: [answer.from, answer.to], check: checkSquare(R.game) });
+        feelMove(answer, R.game.inCheck());
+        R.step = 2;
+        board.setMovable(m.color);
+        setMessage(`🎯 ${other} played <strong>${answer.san}</strong>${onlyReply(m) ? ", the only move" : ""}. <strong>Now finish it: checkmate in one!</strong>`);
+      }, 800);
+      return;
+    }
     if (result.verdict !== "worse") {
       R.trying = false;
       board.setMovable(null);
@@ -166,20 +246,8 @@ const mode = {
       controls();
       return;
     }
-    board.setMovable(null);
-    board.setHighlights({ lastMove: [from, to], bad: to, check: checkSquare(R.game) });
-    play("wrong");
-    buzz("wrong");
-    setMessage(result.mateMissed ? `❌ ${move.san} isn't it. There's a checkmate here. Keep looking, or tap 💡 Show.`
-      : `❌ ${move.san} isn't better${result.lost ? `: it gives away about ${result.lost} point${result.lost === 1 ? "" : "s"}` : ""}. Try again, or tap 💡 Show.`, "bad");
-    const token = R.token;
-    setTimeout(() => {
-      if (!R || R.token !== token) return;
-      R.game.undo();
-      board.setPieces(piecesFromFen(R.game.fen()), { moves: animationFor(move).map(([a, b]) => [b, a]) });
-      board.setHighlights({ check: checkSquare(R.game) });
-      board.setMovable(m.color);
-    }, 900);
+    wrongTry(m, move, result.mateMissed ? `❌ ${move.san} isn't it. There's a checkmate${m.mateIn > 1 ? ` in ${m.mateIn}` : ""} here. Keep looking, or tap 💡 Show.`
+      : `❌ ${move.san} isn't better${result.lost ? `: it gives away about ${result.lost} point${result.lost === 1 ? "" : "s"}` : ""}. Try again, or tap 💡 Show.`);
   },
   onIllegal(from, to) {
     if (!R?.trying) return;
