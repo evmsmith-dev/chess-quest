@@ -374,6 +374,30 @@
     </div>
   </div>
 
+  <div id="set-overlay" class="overlay" role="dialog" aria-modal="true" aria-labelledby="set-heading" hidden>
+    <div class="overlay-backdrop" data-close></div>
+    <div class="overlay-card">
+      <button type="button" class="overlay-close" data-close aria-label="Close">✕</button>
+      <h2 id="set-heading"></h2>
+      <p id="set-summary" class="overlay-note"></p>
+      <div class="menu-list">
+        <button type="button" id="set-retry" class="menu-item"></button>
+        <button type="button" id="set-practice" class="menu-item">🔀 Practice<small>All of them again, in a shuffled order</small></button>
+        <button type="button" id="set-drill" class="menu-item"></button>
+      </div>
+    </div>
+  </div>
+
+  <div id="drill-overlay" class="overlay" role="dialog" aria-modal="true" aria-labelledby="drill-heading" hidden>
+    <div class="overlay-backdrop" data-close></div>
+    <div class="overlay-card">
+      <button type="button" class="overlay-close" data-close aria-label="Close">✕</button>
+      <h2 id="drill-heading">⚡ Speed drill</h2>
+      <p class="overlay-note">Solve as many puzzles as you can in 3 minutes. Three mistakes and it's over. Pick a set:</p>
+      <div id="drill-list" class="menu-list"></div>
+    </div>
+  </div>
+
   <div id="menu-overlay" class="overlay" role="dialog" aria-modal="true" aria-labelledby="menu-heading" hidden>
     <div class="overlay-backdrop" data-close></div>
     <div class="overlay-card">

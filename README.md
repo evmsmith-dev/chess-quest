@@ -10,6 +10,8 @@ Learn chess, solve puzzles and play the computer, in an app you install on a pho
 
   Wrong moves get an explanation ("The pawn on d5 is protected by the pawn on e6…"). Lessons earn up to 3 stars, and every lesson is open, so experienced players can skip ahead.
 - **🎯 Challenges:** puzzles with one best answer, in five sets. Beginner sets are *Mate in 1* and *Free pieces*. Intermediate sets are *Mate in 2*, *Forks* and *Win material*. A hint first shows which piece to move, then where to move it.
+  - **Finishing a set** celebrates, shows how many were solved on the first try, and suggests the next set (Mate in 1 → Free pieces → Mate in 2 → Forks → Win material). A finished set's card shows ✓, or 👑 when every puzzle was solved on the first try, and opens **Retry missed**, **Practice** (shuffled) and **Speed drill**.
+  - **⚡ Speed drill:** as many puzzles from one set as you can in 3 minutes, with 3 lives. A miss shows the answer. The best score per set is kept.
 - **🔥 Daily puzzle:** the same puzzle for everyone each day, with a streak. Every 7 days in a row earns a 🧊 freeze (up to 2), and a freeze saves the streak on a missed day. After solving, you see how many players solved it on the first try that day (two anonymous counts per day, when online play is set up).
 - **🤖 Play the computer:** full games against a **Beginner** or **Intermediate** bot, as White, Black or a random color.
   - All the rules apply: castling, en passant, promotion, and draws by stalemate, threefold repetition, the 50-move rule and insufficient material.

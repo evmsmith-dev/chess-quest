@@ -21,7 +21,7 @@ import { getBackend, onlineConfigured } from "./online/backend.js";
 import { isOffline, onConnectionChange, withTimeout } from "./online/connection.js";
 import { AVATARS, cleanCode, INVITE_FRESH_MS } from "./online/common.js";
 import { dailyStats, statsLine } from "./screens/puzzle.js";
-import { SETS, loadPuzzles, puzzleList, solvedPuzzles, startSet, startPuzzle, dailyPuzzle, dailyRecord, dailyStreak, setPuzzleHooks } from "./screens/puzzle.js";
+import { SETS, loadPuzzles, puzzleList, solvedPuzzles, setStatus, drillBests, startPractice, startRetry, startDrill, startSet, startPuzzle, dailyPuzzle, dailyRecord, dailyStreak, setPuzzleHooks } from "./screens/puzzle.js";
 
 const byId = (id) => document.getElementById(id);
 const escapeHtml = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
@@ -122,22 +122,64 @@ byId("unit-list").addEventListener("click", (e) => {
 // ---------- Challenges ----------
 
 function renderChallenges() {
-  const solved = solvedPuzzles();
   const tiers = ["Beginner", "Intermediate"];
-  byId("set-list").innerHTML = tiers.map((tier) => `<h3 class="tier-title">${tier}</h3>` + SETS.filter((s) => s.tier === tier).map((set) => {
-    const total = puzzleList(set.id).length;
-    const count = solved[set.id]?.length || 0;
-    return `<button type="button" class="set-card" data-set="${set.id}" ${total ? "" : "disabled"}>
+  const drill = `<button type="button" class="set-card drill-card" id="drill-btn">
+      <span class="set-emoji" aria-hidden="true">⚡</span>
+      <span class="set-text"><strong>Speed drill</strong><small>As many puzzles as you can in 3 minutes</small></span>
+      <span class="set-count" aria-hidden="true">➜</span>
+    </button>`;
+  byId("set-list").innerHTML = drill + tiers.map((tier) => `<h3 class="tier-title">${tier}</h3>` + SETS.filter((s) => s.tier === tier).map((set) => {
+    const status = setStatus(set.id);
+    const { total, solved: count } = status;
+    const badge = status.perfect ? "👑 " : status.complete ? "✓ " : "";
+    const note = status.perfect ? "Perfect: every one on the first try" : status.complete ? `Complete · ${status.clean}/${total} on the first try` : set.goal;
+    return `<button type="button" class="set-card${status.complete ? " is-complete" : ""}" data-set="${set.id}" ${total ? "" : "disabled"}>
       <span class="set-emoji" aria-hidden="true">${set.emoji}</span>
-      <span class="set-text"><strong>${set.title}</strong><small>${set.goal}</small>
+      <span class="set-text"><strong>${set.title}</strong><small>${note}</small>
         <span class="progress-bar small" aria-hidden="true"><span style="width:${total ? (count / total) * 100 : 0}%"></span></span></span>
-      <span class="set-count">${count}/${total}</span>
+      <span class="set-count">${badge}${count}/${total}</span>
     </button>`;
   }).join("")).join("");
 }
 byId("set-list").addEventListener("click", (e) => {
+  if (e.target.closest("#drill-btn")) { openDrillPicker(); return; }
   const id = e.target.closest("[data-set]")?.dataset.set;
-  if (id) startSet(id);
+  if (!id) return;
+  if (setStatus(id).complete) openSetMenu(id);
+  else startSet(id);
+});
+
+let setMenuKind = null;
+
+/** A finished set: retry the misses, practice shuffled, or a speed drill. */
+function openSetMenu(kind) {
+  const set = SETS.find((s) => s.id === kind);
+  const status = setStatus(kind);
+  setMenuKind = kind;
+  byId("set-heading").textContent = `${status.perfect ? "👑" : set.emoji} ${set.title}`;
+  byId("set-summary").textContent = status.perfect
+    ? `Perfect! All ${status.total} solved on the first try.`
+    : `Complete! ${status.clean} of ${status.total} solved on the first try. Get the rest on the first try to earn the 👑 crown.`;
+  const missed = status.missed.length;
+  byId("set-retry").hidden = !missed;
+  byId("set-retry").innerHTML = `🎯 Retry missed (${missed})<small>The ones that took more than one try</small>`;
+  const best = drillBests()[kind];
+  byId("set-drill").innerHTML = `⚡ Speed drill<small>${best ? `Your best: ${best}` : "3 minutes, 3 lives"}</small>`;
+  openOverlay("set-overlay", { focus: missed ? "#set-retry" : "#set-practice" });
+}
+byId("set-retry").addEventListener("click", () => { const k = setMenuKind; closeTopThen(() => startRetry(k)); });
+byId("set-practice").addEventListener("click", () => { const k = setMenuKind; closeTopThen(() => startPractice(k)); });
+byId("set-drill").addEventListener("click", () => { const k = setMenuKind; closeTopThen(() => startDrill(k)); });
+
+function openDrillPicker() {
+  const bests = drillBests();
+  byId("drill-list").innerHTML = SETS.filter((s) => puzzleList(s.id).length).map((s) =>
+    `<button type="button" class="menu-item" data-drill="${s.id}">${s.emoji} ${s.title}<small>${s.tier}${bests[s.id] ? ` · Best: ${bests[s.id]}` : ""}</small></button>`).join("");
+  openOverlay("drill-overlay", { focus: "[data-drill]" });
+}
+byId("drill-list").addEventListener("click", (e) => {
+  const id = e.target.closest("[data-drill]")?.dataset.drill;
+  if (id) closeTopThen(() => startDrill(id));
 });
 
 // ---------- Rulebook ----------

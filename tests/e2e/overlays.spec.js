@@ -48,6 +48,17 @@ const OPENERS = {
     await page.locator("#continue-btn").click();
     await tapMove(page, "b7", "a8");
   },
+  "set-overlay": async (page) => {
+    const all = Array.from({ length: 60 }, (_, i) => i);
+    await page.evaluate((all) => localStorage.setItem("chessQuest_puzzles", JSON.stringify({ mate1: all })), all);
+    await page.reload();
+    await page.locator("#challenges-btn").click();
+    await page.locator('[data-set="mate1"]').click();
+  },
+  "drill-overlay": async (page) => {
+    await page.locator("#challenges-btn").click();
+    await page.locator("#drill-btn").click();
+  },
   "result-overlay": async (page) => {
     await page.locator("#new-game-btn").click();
     await page.locator("#start-game-btn").click();

@@ -65,6 +65,59 @@ export const puzzleList = (kind) => puzzles?.[kind] || [];
 
 /** Solved puzzle indexes per set: { mate1: [0, 3], … }. */
 export const solvedPuzzles = () => readJson("puzzles", {});
+/**
+ * Puzzles solved on the first try (no mistakes, no hints), same shape. First-try solves weren't
+ * recorded before this was added, so earlier solves count as first-try rather than as misses.
+ */
+export function cleanPuzzles() {
+  const clean = readJson("puzzlesClean", null);
+  if (clean) return clean;
+  const legacy = solvedPuzzles();
+  writeJson("puzzlesClean", legacy);
+  return legacy;
+}
+/** Best speed-drill score per set: { mate1: 14, … }. */
+export const drillBests = () => readJson("drillBest", {});
+
+/** The set to suggest after finishing one: the learning path. */
+export const NEXT_SET = { mate1: "hanging", hanging: "mate2", mate2: "fork", fork: "material", material: null };
+export const DRILL_MS = 3 * 60 * 1000;
+export const DRILL_LIVES = 3;
+
+/** Where the player stands in a set. `missed` = puzzles not yet solved on the first try. */
+export function setStatus(kind) {
+  const total = puzzleList(kind).length;
+  const solved = new Set(solvedPuzzles()[kind] || []);
+  const clean = new Set(cleanPuzzles()[kind] || []);
+  const missed = puzzleList(kind).map((_, i) => i).filter((i) => !clean.has(i));
+  return { total, solved: solved.size, clean: clean.size, complete: total > 0 && solved.size >= total, perfect: total > 0 && clean.size >= total, missed };
+}
+
+function shuffled(list) {
+  const out = [...list];
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
+
+/** A shuffled round of every puzzle in a finished set. */
+export function startPractice(kind) {
+  const order = shuffled(puzzleList(kind).map((_, i) => i));
+  startRound(kind, "practice", order);
+}
+
+/** A round of the puzzles not yet solved on the first try. */
+export function startRetry(kind) {
+  const order = shuffled(setStatus(kind).missed);
+  if (order.length) startRound(kind, "retry", order);
+}
+
+function startRound(kind, mode, order) {
+  const round = { mode, queue: order.slice(1), total: order.length, done: 0, clean: 0 };
+  startPuzzle(kind, order[0], { round });
+}
 
 /** Today's puzzle: the same on every device. */
 export function dailyPuzzle(day = dateKey()) {
@@ -88,16 +141,18 @@ export function startSet(kind) {
   startPuzzle(kind, index);
 }
 
-export function startPuzzle(kind, index, { daily = null } = {}) {
+export function startPuzzle(kind, index, { daily = null, round = null, drill = null } = {}) {
   const puzzle = puzzleList(kind)[index];
   if (!puzzle) return;
   const set = SETS.find((s) => s.id === kind);
-  P = { kind, index, puzzle, set, daily, step: 0, mistakes: 0, hints: 0, token: 0, game: new Chess(puzzle.fen), locked: false };
-  if (currentScreen() !== "play") openScreen("play", { onLeave: () => { if (P) P.token++; P = null; } });
+  P = { kind, index, puzzle, set, daily, round, drill, step: 0, mistakes: 0, hints: 0, token: 0, game: new Chess(puzzle.fen), locked: false };
+  if (currentScreen() !== "play") openScreen("play", { onLeave: () => { if (P) P.token++; P = null; stopDrillTimer(); } });
   useMode(mode);
   const color = P.game.turn();
   P.color = color;
-  setTitle(daily ? "Daily puzzle" : set.title, daily ? `${set.title} · ${dateLabel(daily)}` : `${set.tier} · Puzzle ${index + 1} of ${puzzleList(kind).length}`);
+  if (drill) setTitle("⚡ Speed drill", drillLine(drill));
+  else if (round) setTitle(set.title, `${round.mode === "retry" ? "Retry missed" : "Practice"} · ${round.done + 1} of ${round.total}`);
+  else setTitle(daily ? "Daily puzzle" : set.title, daily ? `${set.title} · ${dateLabel(daily)}` : `${set.tier} · Puzzle ${index + 1} of ${puzzleList(kind).length}`);
   board.setOrientation(color);
   board.setPieces(piecesFromFen(puzzle.fen), { animate: false });
   board.setHighlights({ check: checkSquare(P.game) });
@@ -117,6 +172,14 @@ function prompt(extra = "") {
 }
 
 function controls(done = false) {
+  if (P.drill) {
+    setControls([{ label: "⏹ Stop", id: "ctl-stop", onClick: () => endDrill(P.drill) }]);
+    return;
+  }
+  if (done && P.round && !P.round.queue.length) {
+    setControls([{ label: "Finish ➜", kind: "primary", id: "ctl-next", onClick: next }]);
+    return;
+  }
   if (done) {
     setControls(P.daily
       ? [{ label: "🏠 Home", onClick: () => backToHome() }, { label: "🎯 Challenges", kind: "primary", onClick: () => backToHome(() => document.getElementById("challenges-btn").click()) }]
@@ -131,16 +194,43 @@ function controls(done = false) {
 }
 
 function next() {
+  if (P.round) {
+    const round = P.round;
+    if (!P.locked) round.done++; // skipped
+    if (round.queue.length) startPuzzle(P.kind, round.queue[0], { round: { ...round, queue: round.queue.slice(1) } });
+    else finishRound(round);
+    return;
+  }
   const list = puzzleList(P.kind);
   const solved = new Set(solvedPuzzles()[P.kind] || []);
+  // The next unsolved one; once the whole set is solved, simply the next in order.
   for (let k = 1; k <= list.length; k++) {
     const i = (P.index + k) % list.length;
-    if (!solved.has(i) || k === list.length) { startPuzzle(P.kind, i); return; }
+    if (!solved.has(i)) { startPuzzle(P.kind, i); return; }
   }
+  startPuzzle(P.kind, (P.index + 1) % list.length);
+}
+
+/** The end of a practice or retry round. */
+function finishRound(round) {
+  const { kind, set } = P;
+  const status = setStatus(kind);
+  const retry = round.mode === "retry";
+  const all = round.clean === round.total;
+  if (all) window.confetti?.({ particleCount: 90, spread: 70, origin: { y: 0.6 }, disableForReducedMotion: true });
+  showResult({
+    emoji: status.perfect ? "👑" : all ? "🌟" : "✅",
+    title: retry ? "Retry round done!" : "Practice round done!",
+    text: status.perfect ? `Every ${set.title} puzzle solved on the first try. You've earned the crown!`
+      : retry ? `${status.missed.length ? `${status.missed.length} left to get on the first try.` : ""}` : "Nicely done.",
+    stats: [["First try", `${round.clean} of ${round.total}`]],
+    secondary: ["See the board", null],
+    primary: ["Back to Challenges", () => backTo("challenges")],
+  });
 }
 
 function hint() {
-  if (!P || P.locked) return;
+  if (!P || P.locked || P.drill) return;
   P.hints++;
   const expected = P.puzzle.line[P.step];
   const from = expected.slice(0, 2), to = expected.slice(2, 4);
@@ -170,6 +260,7 @@ const mode = {
     const move = P.game.move({ from, to, promotion });
     board.setPieces(piecesFromFen(P.game.fen()), { moves: animationFor(move) });
     feelMove(move, P.game.inCheck());
+    if (verdict === "wrong" && P.drill) { drillMiss(move); return; }
     if (verdict === "wrong") {
       P.mistakes++;
       P.locked = true;
@@ -190,6 +281,7 @@ const mode = {
       }, 900);
       return;
     }
+    if (verdict === "done" && P.drill) { drillHit(move); return; }
     if (verdict === "done") { solved(move); return; }
     // Correct: the other side replies, then it's the player's turn again.
     P.step += 2;
@@ -228,12 +320,19 @@ function solved(move) {
   board.setHighlights({ lastMove: [move.from, move.to], good: move.to, check: checkSquare(P.game) });
   play("win");
   buzz("win");
+  const wasComplete = setStatus(P.kind).complete;
+  const clean = P.mistakes === 0 && P.hints === 0;
   const all = solvedPuzzles();
   const set = new Set(all[P.kind] || []);
   set.add(P.index);
   all[P.kind] = [...set].sort((a, b) => a - b);
   writeJson("puzzles", all);
-  const clean = P.mistakes === 0 && P.hints === 0;
+  if (clean && !P.daily) {
+    const cleanAll = cleanPuzzles();
+    cleanAll[P.kind] = [...new Set([...(cleanAll[P.kind] || []), P.index])].sort((a, b) => a - b);
+    writeJson("puzzlesClean", cleanAll);
+  }
+  if (P.round) { P.round.done++; if (clean) P.round.clean++; }
   setMessage(`🎉 ${move.san}${P.game.isCheckmate() ? " is checkmate" : ""}! ${clean ? "Solved on the first try." : "Solved!"}`, "good");
   controls(true);
   if (P.daily) {
@@ -255,9 +354,128 @@ function solved(move) {
       secondary: ["See the board", null],
       primary: ["Home", () => backToHome()],
     });
+  } else if (!P.round && !wasComplete && setStatus(P.kind).complete) {
+    setComplete();
   } else {
     document.getElementById("ctl-next")?.focus({ preventScroll: true });
   }
+  hooks.onChange();
+}
+
+/** The whole set is solved for the first time: celebrate, and point to what's next. */
+function setComplete() {
+  const { kind, set } = P;
+  const status = setStatus(kind);
+  const nextSet = SETS.find((x) => x.id === NEXT_SET[kind] && !setStatus(x.id).complete)
+    || SETS.find((x) => !setStatus(x.id).complete && puzzleList(x.id).length);
+  window.confetti?.({ particleCount: 140, spread: 80, origin: { y: 0.6 }, disableForReducedMotion: true });
+  const missed = status.total - status.clean;
+  showResult({
+    emoji: status.perfect ? "👑" : "🏆",
+    title: `${set.title} complete!`,
+    text: status.perfect ? "Every puzzle on the first try. You've earned the crown!"
+      : `${missed} of them took more than one try. Retry those from Challenges to earn the 👑 crown.`,
+    stats: [["Solved", `${status.solved}/${status.total}`], ["First try", `${status.clean}/${status.total}`]],
+    secondary: ["See the board", null],
+    primary: nextSet ? [`Try ${nextSet.title} ➜`, () => startSet(nextSet.id)] : ["⚡ Speed drill", () => startDrill(kind)],
+  });
+}
+
+// ---------- Speed drill: as many puzzles as you can in 3 minutes, with 3 lives ----------
+
+let drillTimer = null;
+
+function stopDrillTimer() {
+  clearInterval(drillTimer);
+  drillTimer = null;
+}
+
+const formatTime = (ms) => {
+  const total = Math.max(0, Math.ceil(ms / 1000));
+  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
+};
+const drillLine = (d) => `${SETS.find((x) => x.id === d.kind).title} · ⏱ ${formatTime(d.ends - Date.now())} · ${"❤️".repeat(d.lives)}${"🤍".repeat(DRILL_LIVES - d.lives)} · ✅ ${d.solved}`;
+
+export function startDrill(kind) {
+  stopDrillTimer();
+  const d = { kind, order: shuffled(puzzleList(kind).map((_, i) => i)), at: 0, solved: 0, lives: DRILL_LIVES, ends: Date.now() + DRILL_MS, over: false };
+  drillPuzzle(d);
+  setMessage(`⚡ <strong>Go!</strong> Solve as many as you can in ${DRILL_MS / 60000} minutes. ${DRILL_LIVES} mistakes and the drill ends.`);
+  drillTimer = setInterval(() => {
+    if (!P?.drill || P.drill !== d) return;
+    setTitle("⚡ Speed drill", drillLine(d));
+    if (Date.now() >= d.ends) endDrill(d);
+  }, 250);
+}
+
+function drillPuzzle(d) {
+  if (d.at >= d.order.length) { d.order = shuffled(d.order); d.at = 0; } // went through them all: go round again
+  startPuzzle(d.kind, d.order[d.at++], { drill: d });
+}
+
+function drillHit(move) {
+  const d = P.drill;
+  if (d.over) return;
+  d.solved++;
+  P.locked = true;
+  board.setMovable(null);
+  board.setHighlights({ lastMove: [move.from, move.to], good: move.to, check: checkSquare(P.game) });
+  play("correct");
+  setMessage(`✅ ${move.san}! <strong>${d.solved} solved.</strong>`, "good");
+  setTitle("⚡ Speed drill", drillLine(d));
+  const token = P.token;
+  setTimeout(() => { if (P && P.token === token && !d.over) drillPuzzle(d); }, 450);
+}
+
+function drillMiss(move) {
+  const d = P.drill;
+  if (d.over) return;
+  d.lives--;
+  P.locked = true;
+  board.setMovable(null);
+  play("wrong");
+  buzz("wrong");
+  board.shake();
+  // Show the right move, so a miss still teaches something.
+  const expected = P.puzzle.line[P.step];
+  P.game.undo();
+  const right = P.game.move(parseUci(expected));
+  board.setPieces(piecesFromFen(P.game.fen()), { animate: false });
+  board.setHighlights({ lastMove: [right.from, right.to], good: right.to, bad: move.to, check: checkSquare(P.game) });
+  setMessage(`❌ ${move.san} isn't it. The answer was <strong>${right.san}</strong>.`, "bad");
+  setTitle("⚡ Speed drill", drillLine(d));
+  const token = P.token;
+  if (d.lives <= 0) { setTimeout(() => { if (!d.over) endDrill(d); }, 1200); return; }
+  setTimeout(() => { if (P && P.token === token && !d.over) drillPuzzle(d); }, 1400);
+}
+
+function endDrill(d) {
+  if (!d || d.over) return;
+  d.over = true;
+  stopDrillTimer();
+  if (P) { P.locked = true; P.token++; }
+  board.setMovable(null);
+  const bests = drillBests();
+  const previous = bests[d.kind] || 0;
+  const best = d.solved > previous;
+  if (best) { bests[d.kind] = d.solved; writeJson("drillBest", bests); }
+  const set = SETS.find((x) => x.id === d.kind);
+  const why = d.lives <= 0 ? "Out of lives." : Date.now() >= d.ends ? "Time's up!" : "Drill stopped.";
+  setTitle("⚡ Speed drill", `${set.title} · ✅ ${d.solved}`);
+  setMessage(`${why} You solved <strong>${d.solved}</strong>.`, "info");
+  setControls([{ label: "↺ Again", kind: "primary", onClick: () => startDrill(d.kind) }, { label: "🎯 Challenges", onClick: () => backTo("challenges") }]);
+  if (best && d.solved > 0) {
+    play("win");
+    window.confetti?.({ particleCount: 120, spread: 75, origin: { y: 0.6 }, disableForReducedMotion: true });
+  }
+  showResult({
+    emoji: best && d.solved > 0 ? "🏅" : "⚡",
+    title: `${d.solved} solved!`,
+    text: `${why} ${best && d.solved > 0 ? (previous ? `New best! (Old best: ${previous})` : "Your first score. Can you beat it?") : `Your best: ${previous}.`}`,
+    stats: [["Solved", d.solved], ["Mistakes", DRILL_LIVES - d.lives], ["Best", Math.max(previous, d.solved)]],
+    secondary: ["Done", () => backTo("challenges")],
+    primary: ["↺ Go again", () => startDrill(d.kind)],
+  });
   hooks.onChange();
 }
 
