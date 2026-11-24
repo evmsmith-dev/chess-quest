@@ -2,7 +2,7 @@
 
 Learn chess, solve puzzles and play the computer, in an app you install on a phone, tablet or computer (PWA). It works offline. For all ages, from first moves to intermediate.
 
-- **🎓 Learn:** 23 short lessons in 6 units: *Meet the pieces*, *Winning pieces*, *Check and checkmate*, *Special moves*, *How games end* and *Winning plans*. Each lesson starts with a Tip Card, followed by a few tasks:
+- **🎓 Learn:** 30 short lessons in 8 units: *Meet the pieces*, *Winning pieces*, *Check and checkmate*, *Special moves*, *How games end*, *Winning plans*, *Opening basics* (center, development, castling, beginner traps) and *Checkmate patterns* (back-rank, smothered, queen kiss and ladder mates). Each lesson starts with a Tip Card, followed by a few tasks:
   - **Stars:** move one kind of piece to collect every ⭐, with the fewest moves possible shown.
   - **Find the move:** for example a mate in one, getting out of check three ways, castling or en passant.
   - **Quizzes:** short questions about the rules.

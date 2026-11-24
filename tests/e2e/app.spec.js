@@ -12,7 +12,7 @@ async function startGame(page, { level = "beginner", color = "w" } = {}) {
 test("home shows every mode and the daily puzzle", async ({ page }) => {
   await openApp(page);
   await expect(page.locator("#daily-status")).toContainText("Today:");
-  await expect(page.locator("#learn-summary")).toHaveText("0 of 23 lessons");
+  await expect(page.locator("#learn-summary")).toHaveText("0 of 30 lessons");
   await expect(page.locator("#challenge-summary")).toContainText("solved");
 });
 
@@ -123,6 +123,38 @@ test("a star lesson can be completed", async ({ page }) => {
   await page.locator("#result-secondary").click();
   await expect(page.locator("#learn")).toBeVisible();
   await expect(page.locator('[data-lesson="rook"]')).toHaveClass(/is-done/);
+});
+
+test("new units: the Scholar's mate trap and a smothered mate as Black", async ({ page }) => {
+  await openApp(page);
+  await page.locator("#learn-btn").click();
+  await expect(page.locator("#unit-list")).toContainText("Opening basics");
+  await expect(page.locator("#unit-list")).toContainText("Checkmate patterns");
+  await page.locator('[data-lesson="traps"]').click();
+  await page.locator("#tip-overlay .primary").click();
+  await tapMove(page, "g8", "f6");
+  await expect(page.locator("#message")).toContainText("Qxf7 is checkmate");
+  await page.clock.runFor(1200);
+  await tapMove(page, "g7", "g6");
+  await expect(page.locator("#message")).toContainText("White may try again with Qf3");
+  await page.locator("#ctl-next").click();
+  // The follow-up: Qf3 aims at f7 again. Qe7 works, with a pointer to the better Nf6.
+  await tapMove(page, "d8", "e7");
+  await expect(page.locator("#message")).toContainText("Nf6 was even better");
+  await page.goBack();
+  // Any checkmate counts in the queen kiss task, with a pointer to the kiss.
+  await page.locator('[data-lesson="teamwork-mates"]').click();
+  await page.locator("#tip-overlay .primary").click();
+  await tapMove(page, "d7", "e8");
+  await expect(page.locator("#message")).toContainText("There's also a queen kiss here: Qg7");
+  await page.goBack();
+  await page.locator('[data-lesson="smothered"]').click();
+  await page.locator("#tip-overlay .primary").click();
+  await tapMove(page, "g5", "f7");
+  await expect(page.locator("#message")).toContainText("Nf7 is checkmate");
+  await page.locator("#ctl-next").click();
+  await tapMove(page, "e4", "f2");
+  await expect(page.locator("#message")).toContainText("Nf2 is checkmate");
 });
 
 test("a move task: a wrong move is explained, the right one passes", async ({ page }) => {

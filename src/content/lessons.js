@@ -7,6 +7,7 @@
 //          `wrong` gives a reason for particular wrong moves.
 //   quiz   A question, with an optional board (`fen`, `highlight`).
 //   play   Play on from a position against the bot until `goal` (mate) within `moves` moves.
+//          `success` is shown for a solution; `successFor` can give particular solutions their own.
 // The player always plays the side to move in `fen`. scripts/validate-content.mjs checks every
 // position, answer and star.
 export const UNITS = [
@@ -355,6 +356,122 @@ export const UNITS = [
         ],
         tasks: [
           { type: "play", goal: "mate", moves: 30, fen: "8/8/8/8/3k4/8/8/R3K3 w - - 0 1", text: "Checkmate the lone king within 30 moves." },
+        ],
+      },
+    ],
+  },
+  {
+    id: "openings",
+    title: "Opening basics",
+    emoji: "🚀",
+    lessons: [
+      {
+        id: "center",
+        title: "Control the center",
+        tip: [
+          "The four squares in the middle (d4, e4, d5 and e5) are the center. Pieces in or near the center reach the most squares.",
+          "Start with a center pawn, then bring your knights toward the middle. A knight on the edge reaches only a few squares: \"a knight on the rim is dim\".",
+        ],
+        tipFen: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+        tipHighlight: ["d4", "e4", "d5", "e5"],
+        tasks: [
+          { type: "quiz", fen: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", highlight: ["d4", "e4", "d5", "e5"], text: "What are the four glowing squares called?", options: ["The center", "The kingside", "The back row"], answer: 0, explain: "d4, e4, d5 and e5 are the center: the most important squares at the start." },
+          { type: "move", goal: "exact", fen: "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1", accept: ["e7e5", "d7d5", "c7c5", "e7e6", "c7c6", "g8f6"], text: "White took the center with e4. Answer by fighting for the center too.", success: "Good! You're not letting White have the center for free.", wrong: { a7a5: "Edge pawns don't help in the center. Try e5, d5 or c5.", h7h5: "Edge pawns don't help in the center. Try e5, d5 or c5.", g8h6: "A knight on the rim is dim. Bring it toward the middle instead (f6)." }, wrongDefault: "Fight for the center: a pawn to e5, d5 or c5, or the knight to f6." },
+          { type: "move", goal: "exact", fen: "rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq e6 0 2", accept: ["g1f3", "b1c3"], text: "Bring out a knight toward the center.", success: "From there the knight reaches the center squares.", wrong: { g1h3: "A knight on the rim is dim: on h3 it reaches only a few squares. Try f3.", b1a3: "A knight on the rim is dim: on a3 it reaches only a few squares. Try c3." }, wrongDefault: "Move a knight toward the middle: f3 or c3." },
+        ],
+      },
+      {
+        id: "develop",
+        title: "Develop your pieces",
+        tip: [
+          "Developing means bringing your knights and bishops off the back row so they can join the game.",
+          "Move each piece once before moving any piece twice, and bring the queen out later: she gets chased around if she comes out too soon.",
+        ],
+        tasks: [
+          { type: "move", goal: "exact", fen: "r1bqkbnr/pppp1ppp/2n5/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 2 3", accept: ["f1c4", "f1b5", "b1c3"], text: "Bring a new piece into the game.", success: "Developed! Another piece is ready to play.", wrong: { f3g5: "That moves the same knight twice. Bring out a new piece instead.", f3e5: "The pawn is protected by the knight on c6: you'd lose your knight for a pawn.", d1e2: "The queen can wait. Develop a knight or a bishop first." }, wrongDefault: "Bring out a piece that hasn't moved yet: the bishop or the other knight." },
+          { type: "quiz", text: "White has moved four different pieces. Black has moved the same knight four times. Who is ahead?", options: ["White: more pieces are ready to play", "Black: the knight has gone further", "It's equal"], answer: 0, explain: "Each move should bring something new into the game. Moving one piece over and over leaves the rest asleep." },
+          { type: "move", goal: "exact", fen: "rnb1kbnr/pppp1ppp/8/4p2q/4P3/2N5/PPPP1PPP/R1BQKBNR w KQkq - 2 3", accept: ["f1e2"], text: "Black brought the queen out early. Develop a piece that attacks her!", success: "The bishop comes out and attacks the queen, so she has to run again. Black wastes another move.", wrong: { g1f3: "A good developing move, but it doesn't attack the queen. Which piece can come out and hit her?", g2g4: "That attacks the queen, but it's a pawn move that weakens your king. Develop a piece that attacks her." }, wrongDefault: "Which piece can come out and attack the queen at the same time? Look at the f1 bishop." },
+        ],
+      },
+      {
+        id: "castle-early",
+        title: "Castle early",
+        tip: [
+          "Castling tucks your king into a corner behind its pawns and brings a rook toward the middle, all in one move.",
+          "Try to castle in the first ten moves or so. A king left in the center is easy to attack once the game opens up.",
+        ],
+        tasks: [
+          { type: "move", goal: "exact", fen: "r1bqk2r/pppp1ppp/2n2n2/2b1p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 4 4", accept: ["e1g1"], text: "Castle on the kingside: tap your king, then g1.", success: "Castled! The king is safe and the rook is coming into the game.", wrong: { e1f1: "Moving the king by hand gives up castling for good. Castle instead: the king goes to g1.", e1e2: "Moving the king by hand gives up castling for good, and the king is still in the middle." }, wrongDefault: "Castle: tap your king, then g1." },
+          { type: "move", goal: "exact", fen: "r3kbnr/pppqpppp/2n5/3p1b2/3P1B2/2N5/PPPQPPPP/R3KBNR b KQkq - 6 5", accept: ["e8c8"], text: "Castle on the queenside (the long way): tap your king, then c8.", success: "Castled long! The rook lands on d8, right on the center column.", wrongDefault: "Castle long: tap your king, then c8." },
+          { type: "quiz", text: "Your king is still on e1 and the middle of the board is opening up. What should you do?", options: ["Castle soon, while you still can", "Walk the king forward to help attack", "Nothing: kings are safe in the middle"], answer: 0, explain: "Open lines in the middle let rooks and queens reach your king. Castling moves it out of the way." },
+        ],
+      },
+      {
+        id: "traps",
+        title: "Beginner traps",
+        tip: [
+          "The f7 pawn (f2 for White) is only protected by the king, so attackers aim at it. The famous four-move checkmate, Scholar's mate, hits f7 with a queen and a bishop.",
+          "Moving the f and g pawns early opens the way to your king. Don't do it!",
+        ],
+        tipFen: "r1bqkb1r/pppp1Qpp/2n2n2/4p3/2B1P3/8/PPPP1PPP/RNB1K1NR b KQkq - 0 4",
+        tipHighlight: ["f7", "c4"],
+        tasks: [
+          { type: "move", goal: "exact", fen: "r1bqkbnr/pppp1ppp/2n5/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR b KQkq - 3 3", accept: ["g7g6", "d8e7", "d8f6", "g8h6"], text: "White is aiming at f7 with the queen and bishop. Stop Scholar's mate!", success: "Defended! f7 is safe, and White's queen came out too early.", successFor: { g8h6: "That works: the knight guards f7. But a knight on the rim is dim, so Qe7 or g6 keeps your pieces better placed.", g7g6: "Defended! g6 blocks the queen and attacks her. Watch out though: White may try again with Qf3." }, wrong: { g8f6: "The knight attacks the queen, but Qxf7 is checkmate! Defend f7 first." }, wrongDefault: "Qxf7 would be checkmate. Block the queen (g6) or protect f7 with your queen." },
+          { type: "move", goal: "exact", fen: "r1bqkbnr/pppp1p1p/2n3p1/4p3/2B1P3/5Q2/PPPP1PPP/RNB1K1NR b KQkq - 1 4", accept: ["g8f6", "d8e7", "d8f6"], text: "You played g6, so White's queen went to f3, aiming at f7 again. Stop it for good!", success: "Nf6 blocks the queen and develops a piece. Scholar's mate is stopped for good.", successFor: { d8e7: "Defended! Nf6 was even better: it blocks the queen and develops a piece at the same time.", d8f6: "Defended! Nf6 was even better: it blocks the queen and develops a piece instead of the queen." }, wrong: { f7f6: "That stops the mate, but it weakens your king and takes the knight's best square. Try Nf6.", f7f5: "That opens lines toward your own king. Nf6 is safer." }, wrongDefault: "Qxf7 would be checkmate. Block the queen's path to f7, best with the knight." },
+          { type: "move", goal: "mate", fen: "rnbqkbnr/pppp1ppp/8/4p3/6P1/5P2/PPPPP2P/RNBQKBNR b KQkq g3 0 2", text: "White moved the f and g pawns. Punish it: checkmate in one!", success: "Fool's mate, the fastest checkmate there is." },
+          { type: "quiz", text: "Why did White lose so quickly in Fool's mate?", options: ["Moving the f and g pawns opened a path to the king", "White moved too fast", "The queen was captured"], answer: 0, explain: "With the f and g pawns gone, the queen could reach the king along the h4–e1 diagonal." },
+        ],
+      },
+    ],
+  },
+  {
+    id: "patterns",
+    title: "Checkmate patterns",
+    emoji: "🎯",
+    lessons: [
+      {
+        id: "back-rank",
+        title: "Back-rank mate",
+        tip: [
+          "When a king hides behind its own pawns, a rook or queen on the back row can checkmate it: the pawns block every escape.",
+          "To stay safe, give your king an escape square (called \"luft\") by moving one pawn in front of it.",
+        ],
+        tipFen: "3R2k1/5ppp/8/8/8/8/5PPP/6K1 b - - 0 1",
+        tipHighlight: ["d8", "g8"],
+        tasks: [
+          { type: "move", goal: "mate", fen: "6k1/5ppp/8/8/8/8/5PPP/3Q2K1 w - - 0 1", text: "Checkmate on the back row.", success: "Back-rank mate! The pawns trap their own king." },
+          { type: "move", goal: "mate", fen: "3r2k1/5ppp/8/8/8/8/5PPP/3RR1K1 w - - 0 1", text: "Black's rook guards the back row. Checkmate anyway!", success: "Rxd8 is checkmate! Your first rook takes the guard, and Black has nothing left to cover the back row." },
+          { type: "move", goal: "exact", fen: "4r1k1/5ppp/8/8/8/8/5PPP/6K1 w - - 0 1", accept: ["h2h3", "h2h4", "g2g3", "g2g4", "f2f3", "f2f4"], text: "Black threatens Re1, back-rank mate. Make an escape square for your king.", success: "Luft! Now Re1+ is just check: your king steps out to h2. h3 is the move most players choose.", successFor: { h2h4: "Luft! It works. h3 is a little safer than h4, which can become a target.", g2g3: "That works! But h3 is the usual choice: moving the g-pawn leaves holes around your king.", g2g4: "That works! But h3 is the usual choice: moving the g-pawn leaves holes around your king.", f2f3: "That works! But it opens the diagonal to your king. h3 is the usual choice, since it weakens the king least.", f2f4: "That works! But it opens the diagonal to your king. h3 is the usual choice, since it weakens the king least." }, wrongDefault: "Move one of the pawns in front of your king, so it has a square to escape to." },
+        ],
+      },
+      {
+        id: "smothered",
+        title: "Smothered mate",
+        tip: [
+          "A smothered mate is a knight checkmate against a king that's completely surrounded by its own pieces.",
+          "Knight checks can't be blocked, so when the king has nowhere to step, it's over.",
+        ],
+        tipFen: "6rk/5Npp/8/8/8/8/8/6K1 b - - 0 1",
+        tipHighlight: ["f7", "h8"],
+        tasks: [
+          { type: "move", goal: "mate", fen: "r5rk/6pp/8/6N1/8/8/8/6K1 w - - 0 1", text: "Smother the king with your knight.", success: "Nf7 is checkmate: the king is stuck behind its own rook and pawns." },
+          { type: "move", goal: "mate", fen: "6k1/8/8/8/4n3/8/6PP/6RK b - - 0 1", text: "You're Black. Find the smothered mate.", success: "Nf2 is checkmate! White's own rook and pawns trap the king." },
+          { type: "quiz", fen: "6rk/5Npp/8/8/8/8/8/6K1 b - - 0 1", text: "Why can't Black get out of this check?", options: ["The king's own pieces fill every escape square, and a knight check can't be blocked", "Because the knight is protected", "It isn't checkmate"], answer: 0, explain: "g8, g7 and h7 are all taken by Black's own pieces, nothing can capture the knight, and knights jump, so there's nothing to block." },
+        ],
+      },
+      {
+        id: "teamwork-mates",
+        title: "Teamwork mates",
+        tip: [
+          "Queen kiss: the queen checks right next to the king, protected by your own king, so it can't be captured.",
+          "Ladder mate: two rooks (or a rook and queen) take turns. One guards a row, the other checks on the next row, pushing the king to the edge.",
+        ],
+        tipFen: "6k1/R7/8/8/8/8/8/1R4K1 w - - 0 1",
+        tipHighlight: ["a7", "b1"],
+        tasks: [
+          { type: "move", goal: "mate", fen: "6k1/3Q4/6K1/8/8/8/8/8 w - - 0 1", text: "Checkmate in one. Can you find the queen kiss: the queen right next to the king?", success: "Checkmate! There's also a queen kiss here: Qg7, right next to the king, where your king protects her.", successFor: { d7g7: "The queen kiss! Your king protects the queen, so Black can't take her." } },
+          { type: "move", goal: "mate", fen: "6k1/R7/8/8/8/8/8/1R4K1 w - - 0 1", text: "Ladder mate: one rook guards the 7th row. Check with the other!", success: "Rb8 is checkmate: one rook guards row 7, the other checks on row 8." },
+          { type: "move", goal: "mate", fen: "8/8/k7/8/8/8/7R/1R4K1 w - - 0 1", text: "The ladder works on columns too: the b1 rook guards the b column. Checkmate in one!", success: "Ra2 is checkmate: one rook guards the b column, the other checks on the a column." },
         ],
       },
     ],

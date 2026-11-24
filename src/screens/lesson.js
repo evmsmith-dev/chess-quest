@@ -227,7 +227,7 @@ function moveTask(task) {
       feelMove(move, game.inCheck());
       if (verdict.ok) {
         board.setHighlights({ lastMove: [from, to], check: checkSquare(game), good: to });
-        succeed(task.success || "Well done!");
+        succeed(task.successFor?.[uci] || task.successFor?.[uci.slice(0, 4)] || task.success || "Well done!");
         return;
       }
       locked = true;
