@@ -196,6 +196,18 @@ test("Develop your pieces: Bd3 is explained, Be2 counts, and the early queen is 
   await expect(page.locator("#message")).toContainText("attacks the queen");
 });
 
+test("A good start: Nc3 counts as a first move, and Bd3 is explained", async ({ page }) => {
+  await openApp(page);
+  await page.locator("#learn-btn").click();
+  await page.locator('[data-lesson="opening"]').click();
+  await page.locator("#tip-overlay .primary").click();
+  await tapMove(page, "b1", "c3");
+  await expect(page.locator("#message")).toContainText("controls e4 and d5");
+  await page.locator("#ctl-next").click();
+  await tapMove(page, "f1", "d3");
+  await expect(page.locator("#message")).toContainText("blocks your d-pawn");
+});
+
 test("a move task: a wrong move is explained, the right one passes", async ({ page }) => {
   await openApp(page);
   await page.locator("#learn-btn").click();
