@@ -271,7 +271,10 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid 
 .thinking::after { content: "…"; display: inline-block; animation: dots 1.2s steps(4) infinite; width: 1.2em; overflow: hidden; vertical-align: bottom; }
 @keyframes dots { from { width: 0; } to { width: 1.2em; } }
 
-.side-col { grid-area: side; display: flex; flex-direction: column; gap: 8px; min-height: 0; }
+.side-col { grid-area: side; display: flex; flex-direction: column; gap: 8px; min-height: 0; overflow-y: auto; }
+/* Nothing in the panel gets squashed (a squashed message spills over the move list): when space
+   runs out, the panel scrolls instead. */
+.side-col > * { flex-shrink: 0; }
 .board-screen.no-board .side-col { justify-content: center; width: min(100%, 560px); justify-self: center; }
 .board-screen.no-board .review-progress { display: block; height: 8px; border-radius: 999px; background: var(--primary-soft); overflow: hidden; margin-top: 8px; }
 .review-progress > span { display: block; height: 100%; background: var(--primary); border-radius: inherit; transition: width 0.2s; }
@@ -523,6 +526,8 @@ html.no-coords .coord { display: none; }
   .control { font-size: 1.08rem; min-height: 52px; }
   .board-screen { --bar-h: 40px; }
   .bar-caps .cap { width: 24px; height: 24px; }
+  /* Taller bars and buttons on tablets: leave the panel a little more room. */
+  .board-col { width: min(100%, calc(100dvh - 370px - env(safe-area-inset-top) - env(safe-area-inset-bottom))); }
 }
 
 /* Landscape (a phone on its side, an iPad, a computer): board on the left as tall as the screen. */
