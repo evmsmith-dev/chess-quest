@@ -37,6 +37,28 @@ test("a move by dragging", async ({ page }) => {
   await expect(page.locator("#move-list")).toContainText("Nf3");
 });
 
+test("with Drag to move off, a drag doesn't move but taps still do", async ({ page }) => {
+  await openApp(page, { storage: { settings: { dragMoves: false } } });
+  await startGame(page);
+  await expect(page.locator("#message")).toContainText("Tap a piece, then tap where it goes");
+  await dragMove(page, "g1", "f3");
+  await expect.poll(() => pieceOn(page, "g1")).toBe("wn");
+  await expect.poll(() => pieceOn(page, "f3")).not.toBe("wn");
+  await expect(page.locator("#move-list")).not.toContainText("Nf3");
+  // The slip only picked the knight up: a tap on f3 finishes the move.
+  await square(page, "f3").click();
+  await expect.poll(() => pieceOn(page, "f3")).toBe("wn");
+});
+
+test("Drag to move can be switched off in Settings", async ({ page }) => {
+  await openApp(page);
+  await page.locator("#settings-btn").click();
+  const toggle = page.locator('[data-setting="dragMoves"]');
+  await expect(toggle).toBeChecked();
+  await toggle.uncheck();
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem("chessQuest_settings")).dragMoves)).toBe(false);
+});
+
 test("an illegal move is explained and the piece stays", async ({ page }) => {
   await openApp(page);
   await startGame(page);

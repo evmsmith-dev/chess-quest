@@ -46,8 +46,10 @@ export class Board {
    *   onIllegal(from, to) → a piece was dropped or tapped onto a square it can't go to
    *   onTap(square) → a tap that isn't part of a move (an empty square, the other side's piece)
    */
-  constructor(el, { getTargets, onMove, onIllegal, onTap } = {}) {
+  constructor(el, { getTargets, onMove, onIllegal, onTap, canDrag } = {}) {
     this.el = el;
+    // Whether pieces can be dragged; with it off, moves are tap a piece, then tap a square.
+    this.canDrag = canDrag || (() => true);
     this.getTargets = getTargets || (() => []);
     this.onMove = onMove || (() => {});
     this.onIllegal = onIllegal || (() => {});
@@ -314,6 +316,7 @@ export class Board {
     const drag = this.drag;
     if (!drag || e.pointerId !== drag.pointerId) return;
     if (!drag.dragging) {
+      if (!this.canDrag()) return; // a wobbly tap still just picks the piece up
       if (Math.hypot(e.clientX - drag.x, e.clientY - drag.y) < DRAG_START_PX) return;
       drag.dragging = true;
       drag.el = this.pieceEls.get(drag.from);

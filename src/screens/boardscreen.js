@@ -15,6 +15,7 @@ export const board = new Board(byId("board"), {
   onMove: (from, to) => mode?.onMove?.(from, to),
   onIllegal: (from, to) => mode?.onIllegal?.(from, to),
   onTap: (square) => mode?.onTap?.(square),
+  canDrag: () => setting("dragMoves"),
 });
 
 /** Makes `handlers` the active mode: { getTargets, onMove, onIllegal, onTap, leave }. */
