@@ -136,7 +136,17 @@ test("new units: the Scholar's mate trap and a smothered mate as Black", async (
   await expect(page.locator("#message")).toContainText("Qxf7 is checkmate");
   await page.clock.runFor(1200);
   await tapMove(page, "g7", "g6");
-  await expect(page.locator("#message")).toContainText("Defended!");
+  await expect(page.locator("#message")).toContainText("White may try again with Qf3");
+  await page.locator("#ctl-next").click();
+  // The follow-up: Qf3 aims at f7 again. Qe7 works, with a pointer to the better Nf6.
+  await tapMove(page, "d8", "e7");
+  await expect(page.locator("#message")).toContainText("Nf6 was even better");
+  await page.goBack();
+  // Any checkmate counts in the queen kiss task, with a pointer to the kiss.
+  await page.locator('[data-lesson="teamwork-mates"]').click();
+  await page.locator("#tip-overlay .primary").click();
+  await tapMove(page, "d7", "e8");
+  await expect(page.locator("#message")).toContainText("There's also a queen kiss here: Qg7");
   await page.goBack();
   await page.locator('[data-lesson="smothered"]').click();
   await page.locator("#tip-overlay .primary").click();

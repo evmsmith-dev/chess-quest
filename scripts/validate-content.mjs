@@ -32,6 +32,7 @@ for (const unit of UNITS) {
           const sols = solutions(task);
           if (!sols.length) fail(where, "no move solves it");
           for (const w of Object.keys(task.wrong || {})) if (sols.includes(w)) fail(where, `${w} is listed as wrong but solves it`);
+          for (const r of Object.keys(task.successFor || {})) if (!sols.includes(r)) fail(where, `${r} has a success message but doesn't solve it`);
           if (task.goal === "safe" && sols.length === legal.size) fail(where, "every move is safe");
         } else if (task.type === "quiz") {
           if (task.fen) new Chess(task.fen, { skipValidation: true });
