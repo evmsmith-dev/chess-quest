@@ -10,6 +10,7 @@ import { readJson, writeJson } from "../storage.js";
 import { play } from "../ui/audio.js";
 import { buzz } from "../ui/haptics.js";
 import { startReview } from "./review.js";
+import { setting } from "../lib/settings.js";
 
 const byId = (id) => document.getElementById(id);
 const BOT = {
@@ -80,7 +81,7 @@ function begin(saved) {
   controls();
   save();
   if (game.turn() !== g.color) botTurn();
-  else setMessage(game.history().length ? "Your move." : `You play ${g.color === "w" ? "White: you move first" : "Black"}. Tap a piece, or drag it.`);
+  else setMessage(game.history().length ? "Your move." : `You play ${g.color === "w" ? "White: you move first" : "Black"}. ${setting("dragMoves") ? "Tap a piece, or drag it." : "Tap a piece, then tap where it goes."}`);
 }
 
 function leave() {

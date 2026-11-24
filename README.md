@@ -33,7 +33,7 @@ Learn chess, solve puzzles and play the computer, in an app you install on a pho
 - **⚙️ Settings** also has **📤 Share Chess Quest**, which opens the phone's share sheet with a link to the website (people install the app from there), and a plain-words **🔒 Privacy** page.
 - **📖 Rulebook:** every rule with an example board, searchable.
 
-**Moving pieces:** tap a piece and then a square, or drag it. Dots show where the piece can go. When you drag on a touch screen, the piece rides above your finger so you can see it. Illegal moves are explained ("That bishop is pinned: moving it would put your own king in check"). The board also works with a keyboard and a screen reader.
+**Moving pieces:** tap a piece and then a square, or drag it (dragging can be turned off in Settings, for players who find it causes slips). Dots show where the piece can go. When you drag on a touch screen, the piece rides above your finger so you can see it. Illegal moves are explained ("That bishop is pinned: moving it would put your own king in check"). The board also works with a keyboard and a screen reader.
 
 **Any screen, any orientation:** in portrait the board sits above the controls. In landscape (a phone on its side, an iPad, a computer) the board takes the full height with the controls beside it. Tests run at Galaxy S26 size in portrait and landscape, at iPad landscape size and on desktop.
 

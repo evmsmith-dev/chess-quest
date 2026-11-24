@@ -9,6 +9,7 @@ export const DEFAULT_SETTINGS = {
   legalDots: true, // dots on the squares the picked-up piece can go to
   coordinates: true,
   autoQueen: false, // skip the promotion choice
+  dragMoves: true, // pieces can be dragged as well as tapped
   largeText: false,
   board: "green", // "green", "blue" or "wood"
 };
