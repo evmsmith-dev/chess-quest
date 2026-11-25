@@ -185,8 +185,11 @@ function update(rec) {
     forget(O.code);
     return;
   }
+  const previous = O.rec;
   O.rec = rec;
   showNewReaction(rec);
+  // The other player just saved this one as a friend: say so, even over the result pop-up.
+  if (previous && !previous.friendPair && theyAddedMe()) toast("Your opponent saved you as a friend. Add them too!");
   // This device's seat now shows a different player number: Firebase replaced ours (after 30
   // days). Take the seat back with the seat key, once; the next update shows the result.
   if (rec.players?.[O.color] && rec.players[O.color] !== O.backend.uid && rec.status !== "over") {
@@ -334,15 +337,28 @@ function render() {
   ]);
 }
 
+/**
+ * True when the other player saved this one as a friend but this device hasn't saved them back.
+ * Challenges only reach a friend whose device has saved the friend link too.
+ */
+const theyAddedMe = () => Boolean(O?.rec?.friendPair && !friendByPair(O.rec.friendPair) && O.rec.friendPair !== O.myPair);
+
 function resultControls() {
   const rec = O.rec;
+  const addBack = theyAddedMe();
   const buttons = [{ label: "🔍 Review", id: "ctl-review", onClick: reviewGame }];
-  if (!friendByPair(friendIdOf())) buttons.push({ label: "🤝 Add friend", id: "ctl-friend", onClick: addFriend });
+  if (!friendByPair(friendIdOf())) buttons.push({ label: "🤝 Add friend", id: "ctl-friend", kind: addBack ? "primary" : undefined, onClick: addFriend });
   else buttons.unshift({ label: "🏠 Home", onClick: () => backToHome() });
+  const rematchKind = addBack ? undefined : "primary";
   if (rec.rematch && rec.rematch !== O.startedRematch) buttons.push({ label: "🔁 Join rematch", kind: "primary", onClick: () => joinRematch(rec.rematch) });
-  else if (!rec.rematch) buttons.push({ label: "🔁 Rematch", kind: "primary", onClick: startRematch });
+  else if (!rec.rematch) buttons.push({ label: "🔁 Rematch", kind: rematchKind, onClick: startRematch });
   setControls([...buttons, ...reactButton()]);
   if (rec.rematch && rec.rematch !== O.startedRematch) setMessage("Your opponent wants a rematch!", "info");
+  else if (addBack) setMessage(`<strong>${escapeHtml(opponentName() === "Opponent" ? "Your opponent" : opponentName())} saved you as a friend.</strong> Tap 🤝 Add friend to save them too, so you can challenge each other from Play online.`, "info");
+  else {
+    const winner = rec.result?.winner;
+    setMessage(winner === "draw" ? "Game over: it's a draw." : winner === O.color ? "Game over: you won! 🎉" : winner ? "Game over: your opponent won. Good game!" : "Game over.", "info");
+  }
 }
 
 function finished() {
@@ -573,8 +589,10 @@ async function addFriend() {
     if (!id) {
       const fresh = await mine.backend.createPair();
       // If the other player added first, use their link instead.
+      mine.myPair = fresh; // this device started the link: no "they saved you" prompt for it
       id = (await mine.backend.setFriendPair(mine.code, fresh)) ? fresh : mine.rec?.friendPair || fresh;
     }
+    mine.myPair = id;
   } catch {
     setMessage("Couldn't add the friend. Check your internet connection.", "bad");
     return;

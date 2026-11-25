@@ -517,3 +517,26 @@ test("emoji reactions can be turned off in Settings", async ({ context }) => {
   await host.waitForTimeout(600);
   await expect(host.locator(".reaction-pop")).toHaveCount(0);
 });
+
+test("when the opponent saves you as a friend, you're asked to add them back", async ({ context }) => {
+  const { host, guest } = await twoPlayers(context);
+  await guest.locator("#controls").getByRole("button", { name: /Resign/ }).click();
+  await guest.locator("#confirm-ok").click();
+  await host.locator("#result-overlay .overlay-close").click();
+  await guest.locator("#result-overlay .overlay-close").click();
+  // The guest saves the host. (Both tabs share storage, so take the friend list back off
+  // afterwards: on real phones the host's own list wouldn't have it.)
+  await guest.locator("#ctl-friend").click();
+  await guest.locator("#friend-name").fill("Alex");
+  await guest.locator("#save-friend").click();
+  await expect(guest.locator("#message")).not.toContainText("saved you as a friend");
+  await host.evaluate(() => localStorage.setItem("chessQuest_friends", "[]"));
+  await expect(host.locator("#toast")).toContainText("Your opponent saved you as a friend");
+  await host.locator("#controls").getByRole("button", { name: /Rematch/ }).count(); // redraw
+  await expect.poll(() => host.locator("#message").textContent()).toContain("saved you as a friend");
+  await expect(host.locator("#ctl-friend")).toHaveClass(/primary/);
+  await host.locator("#ctl-friend").click();
+  await host.locator("#friend-name").fill("Sam");
+  await host.locator("#save-friend").click();
+  await expect(host.locator("#message")).not.toContainText("saved you as a friend");
+});
