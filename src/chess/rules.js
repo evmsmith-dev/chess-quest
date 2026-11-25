@@ -66,17 +66,50 @@ export function explainIllegal(fen, from, to) {
   if (side !== pos.side) return "It's not that side's turn.";
   const target = pos.board[sq(to)];
   if (target !== EMPTY && (target & BLACK ? 1 : 0) === side) return "You can't capture your own piece.";
+  // Castling first: the move generator may list it, and then the generic king message would win.
+  if (type === "k" && Math.abs(from.charCodeAt(0) - to.charCodeAt(0)) === 2 && from[1] === to[1]) {
+    return castleReason(fen, from, to);
+  }
   const pseudo = pos.pseudoMoves(false, sq(from)).some((m) => ((m >> 7) & 127) === sq(to));
   if (pseudo) {
     if (pos.inCheck()) return "Your king is in check. You must protect it first: move the king, block the check, or capture the attacker.";
     if (type === "k") return "Your king can't move to a square where it would be in check.";
     return `That ${PIECE_WORD[type]} is pinned: moving it would put your own king in check.`;
   }
-  if (type === "k" && Math.abs(from.charCodeAt(0) - to.charCodeAt(0)) === 2 && from[1] === to[1]) {
-    return "You can't castle right now. The king and rook must not have moved, the squares between them must be empty, and the king can't be in, pass through, or land in check.";
-  }
   if (pos.inCheck()) return `Your king is in check, so first deal with that. ${HOW_IT_MOVES[type]}`;
   return HOW_IT_MOVES[type];
+}
+
+/** The particular reason castling from `from` to `to` isn't allowed. */
+export function castleReason(fen, from, to) {
+  const game = new Chess(fen);
+  const color = game.turn();
+  const enemy = color === "w" ? "b" : "w";
+  const rank = color === "w" ? "1" : "8";
+  const kingside = to.charCodeAt(0) > from.charCodeAt(0);
+  const side = kingside ? "kingside" : "queenside";
+  const rookSquare = (kingside ? "h" : "a") + rank;
+  const rights = game.getCastlingRights(color);
+  const name = (square) => { const p = game.get(square); return p ? `the ${PIECE_WORD[p.type]} on ${square}` : square; };
+  const attackedBy = (square) => game.attackers(square, enemy).map(name);
+  if (from !== "e" + rank || (!rights.k && !rights.q)) return "Your king has already moved this game, so it can't castle any more.";
+  if (!(kingside ? rights.k : rights.q)) return `The rook on ${rookSquare} has already moved (or been captured), so you can't castle ${side} any more.`;
+  if (game.inCheck()) {
+    const by = attackedBy(from);
+    return `You're in check${by.length ? ` from ${by.join(" and ")}` : ""}, and you can't castle out of check. Block the check, capture the attacker, or move the king. You can castle later once you're safe.`;
+  }
+  const between = kingside ? ["f", "g"] : ["d", "c", "b"];
+  const blockers = between.map((f) => f + rank).filter((square) => game.get(square));
+  if (blockers.length) {
+    const list = blockers.map(name);
+    return `${list.join(" and ").replace(/^./, (c) => c.toUpperCase())} ${list.length > 1 ? "are" : "is"} in the way: the squares between the king and the rook must be empty to castle.`;
+  }
+  const passing = (kingside ? "f" : "d") + rank;
+  const by = attackedBy(passing);
+  if (by.length) return `The king can't pass through check: ${passing} is attacked by ${by.join(" and ")}.`;
+  const landing = attackedBy(to);
+  if (landing.length) return `The king would land in check on ${to}: it's attacked by ${landing.join(" and ")}.`;
+  return "You can't castle right now. The king and rook must not have moved, the squares between them must be empty, and the king can't be in, pass through, or land in check.";
 }
 
 /** Pieces captured so far, by the color that captured them: { w: ["p", …], b: [...] }. */

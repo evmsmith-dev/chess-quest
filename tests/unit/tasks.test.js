@@ -30,6 +30,20 @@ test("illegal moves get a reason", () => {
   assert.match(explainIllegal("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", "g1", "g3"), /in an L/);
 });
 
+test("castling explains the particular reason it isn't allowed", () => {
+  // The position from a real online game: in check from the bishop on b4.
+  const check = "2k3nr/ppp2qpp/2n1p3/5b2/Pb2r3/4P3/2P1QPPP/R1B1K2R w KQ - 0 15";
+  assert.match(explainIllegal(check, "e1", "g1"), /You're in check from the bishop on b4, and you can't castle out of check/);
+  const start = "r3k2r/8/8/8/8/8/8/RN1QKB1R w KQkq - 0 1";
+  assert.match(explainIllegal(start, "e1", "g1"), /^The bishop on f1 is in the way/);
+  assert.match(explainIllegal(start, "e1", "c1"), /^The queen on d1 and the knight on b1 are in the way/);
+  assert.match(explainIllegal("4k3/8/8/8/2b5/8/8/4K2R w K - 0 1", "e1", "g1"), /pass through check: f1 is attacked by the bishop on c4/);
+  assert.match(explainIllegal("4k3/8/8/8/8/8/8/R3K2R w Q - 0 1", "e1", "g1"), /rook on h1 has already moved/);
+  assert.match(explainIllegal("4k3/8/8/8/8/8/8/R3K2R w - - 0 1", "e1", "g1"), /king has already moved/);
+  assert.match(explainIllegal("4k3/8/8/8/8/8/6r1/4K2R w K - 0 1", "e1", "g1"), /land in check on g1|pass through check/);
+  assert.match(explainIllegal("4k1r1/8/8/8/8/8/8/4K2R w K - 0 1", "e1", "g1"), /land in check on g1: it's attacked by the rook on g8/);
+});
+
 test("puzzle moves: the line, any mate, or wrong", () => {
   const p = { fen: "6k1/5ppp/8/8/8/8/8/R5K1 w - - 0 1", line: ["a1a8"] };
   assert.equal(judgePuzzleMove(p, 0, p.fen, "a1a8"), "done");
