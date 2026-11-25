@@ -134,3 +134,43 @@ test("puzzles solved before first-try tracking count as first-try", async ({ pag
   await openChallenges(page);
   await expect(page.locator('[data-set="mate1"] .set-count')).toContainText("👑");
 });
+
+/** Replaces navigator.storage with a fake that counts persist() requests. */
+async function fakeStorage(page, { persisted = false } = {}) {
+  await page.addInitScript((persisted) => {
+    window.__persistCalls = Number(sessionStorage.getItem("persistCalls")) || 0;
+    Object.defineProperty(navigator, "storage", { configurable: true, value: {
+      persisted: async () => persisted,
+      persist: async () => { window.__persistCalls++; sessionStorage.setItem("persistCalls", window.__persistCalls); return true; },
+    } });
+  }, persisted);
+}
+
+test("saving puzzle progress asks the browser to keep the data, at most once a day", async ({ page }) => {
+  await fakeStorage(page);
+  await openApp(page);
+  expect(await page.evaluate(() => window.__persistCalls)).toBe(0); // not on first load
+  await openChallenges(page);
+  await page.locator('[data-set="mate1"]').click();
+  await solve(page, "mate1", 0);
+  await expect.poll(() => page.evaluate(() => window.__persistCalls)).toBe(1);
+  // Next puzzle, and after a reload the same day: no new request.
+  await page.locator("#ctl-next").click();
+  await solve(page, "mate1", 1);
+  await page.reload();
+  await openChallenges(page);
+  await page.locator('[data-set="mate1"]').click();
+  await solve(page, "mate1", 2);
+  await page.waitForTimeout(200);
+  expect(await page.evaluate(() => window.__persistCalls)).toBe(1);
+});
+
+test("no request when the browser already keeps the data", async ({ page }) => {
+  await fakeStorage(page, { persisted: true });
+  await openApp(page);
+  await openChallenges(page);
+  await page.locator('[data-set="mate1"]').click();
+  await solve(page, "mate1", 0);
+  await page.waitForTimeout(200);
+  expect(await page.evaluate(() => window.__persistCalls)).toBe(0);
+});
