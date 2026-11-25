@@ -481,3 +481,39 @@ test("Settings shows whether notifications are allowed", async ({ page }) => {
   await page.locator('[data-setting="turnAlerts"]').uncheck();
   await expect(page.locator("#notify-btn")).toBeHidden();
 });
+
+test("emoji reactions: send one, the other player sees it, and spamming waits", async ({ context }) => {
+  const { host, guest } = await twoPlayers(context);
+  await host.locator("#ctl-react").click();
+  await expect(host.locator("#react-overlay")).toBeVisible();
+  await expect(host.locator("[data-react]")).toHaveCount(6);
+  await host.locator('[data-react="0"]').click();
+  await expect(host.locator(".reaction-pop")).toContainText("Nice move!");
+  await expect(guest.locator(".reaction-pop")).toContainText("👍");
+  await expect(guest.locator(".reaction-pop")).toContainText("Nice move!");
+  // Straight away again: too soon.
+  await host.locator("#ctl-react").click();
+  await host.locator('[data-react="1"]').click();
+  await expect(host.locator("#toast")).toContainText("One moment");
+  // Reopening the game doesn't replay an old reaction.
+  await guest.waitForTimeout(3000);
+  await expect(guest.locator(".reaction-pop")).toHaveCount(0);
+  await guest.reload();
+  await guest.locator("#continue-online-btn").click();
+  await expect(guest.locator("#play-title")).toHaveText("Online game");
+  await guest.waitForTimeout(800);
+  await expect(guest.locator(".reaction-pop")).toHaveCount(0);
+});
+
+test("emoji reactions can be turned off in Settings", async ({ context }) => {
+  const { host, guest } = await twoPlayers(context);
+  await host.evaluate(() => document.querySelector('[data-setting="reactions"]').click());
+  await tapMove(host, "e2", "e4"); // redraws the controls
+  await expect(host.locator("#ctl-react")).toHaveCount(0);
+  await expect.poll(() => pieceOn(guest, "e4")).toBe("wp");
+  await guest.locator("#ctl-react").click();
+  await guest.locator('[data-react="2"]').click();
+  await expect(guest.locator(".reaction-pop")).toBeVisible();
+  await host.waitForTimeout(600);
+  await expect(host.locator(".reaction-pop")).toHaveCount(0);
+});

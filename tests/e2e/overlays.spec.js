@@ -27,6 +27,17 @@ const OPENERS = {
     await page.locator("#result-overlay .overlay-close").click();
     await page.locator("#ctl-friend").click();
   },
+  "react-overlay": async (page) => {
+    const guest = await page.context().newPage();
+    await openApp(guest);
+    await page.locator("#online-btn").click();
+    await page.locator("#online-create").click();
+    const code = (await page.locator(".game-code").textContent()).trim();
+    await guest.locator("#online-btn").click();
+    await guest.locator("#online-code").fill(code);
+    await guest.locator("#online-join").click();
+    await page.locator("#ctl-react").click();
+  },
   "tip-overlay": async (page) => {
     await page.locator("#learn-btn").click();
     await page.locator('[data-lesson="rook"]').click();

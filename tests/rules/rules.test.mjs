@@ -66,6 +66,30 @@ test("moves: only the player to move, one move at a time, no rewriting", async (
   await assertSucceeds(as("bob").ref("games/ABCDEF").update({ moves: "e2e4 e7e5", ply: 2 }));
 });
 
+test("reactions: one of six, only your own, at most one every 2 seconds", async () => {
+  await seed("games/ABCDEF", playing());
+  const mine = (uid, color) => as(uid).ref(`games/ABCDEF/reactions/${color}`);
+  await assertFails(mine("bob", "w").set({ i: 0, t: TS })); // someone else's
+  await assertFails(mine("carol", "w").set({ i: 0, t: TS })); // not a player
+  await assertFails(mine("alice", "w").set({ i: 6, t: TS })); // not one of the six
+  await assertFails(mine("alice", "w").set({ i: "hi", t: TS })); // no text
+  await assertFails(mine("alice", "w").set({ i: 0, t: 12345 })); // the server sets the time
+  await assertFails(mine("alice", "w").set({ i: 0, t: TS, text: "hi" })); // nothing extra
+  await assertSucceeds(mine("alice", "w").set({ i: 0, t: TS }));
+  await assertFails(mine("alice", "w").set({ i: 1, t: TS })); // too soon
+  await assertSucceeds(mine("bob", "b").set({ i: 5, t: TS }));
+  await seed("games/ABCDEF/reactions/w", { i: 1, t: now() - 3000 });
+  await assertSucceeds(mine("alice", "w").set({ i: 2, t: TS })); // 2 seconds later is fine
+  // Rewriting the game (as a move does) keeps the other player's reaction as it is.
+  await seed("games/ABCDEF/reactions/w", { i: 1, t: 1000 });
+  await assertSucceeds(as("alice").ref("games/ABCDEF").update({ moves: "e2e4", ply: 1, "reactions/w": { i: 1, t: 1000 } }));
+  await assertSucceeds(as("bob").ref("games/ABCDEF").update({ moves: "e2e4 e7e5", ply: 2, "reactions/w": { i: 1, t: 1000 } }));
+  await assertFails(as("bob").ref("games/ABCDEF").update({ "reactions/w": { i: 3, t: 1000 } })); // but can't change it
+  // Not before the game starts.
+  await seed("games/GHJKMN", waiting());
+  await assertFails(as("alice").ref("games/GHJKMN/reactions/w").set({ i: 0, t: TS }));
+});
+
 test("results: resigning, draws by agreement and checkmate are checked", async () => {
   await seed("games/ABCDEF", playing());
   await assertFails(as("alice").ref("games/ABCDEF").update({ status: "over", result: { winner: "w", reason: "resigned" } }));

@@ -5,6 +5,7 @@ import { readJson, writeJson } from "../storage.js";
 export const DEFAULT_SETTINGS = {
   sound: true,
   vibration: true,
+  reactions: true, // online games: send and see emoji reactions
   turnAlerts: true, // online games: sound, vibration and a badge when it's your move and you've looked away
   legalDots: true, // dots on the squares the picked-up piece can go to
   coordinates: true,

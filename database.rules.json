@@ -77,9 +77,6 @@
             ".validate": false
           }
         },
-        "$other": {
-          ".validate": false
-        },
         "clock": {
           ".validate": "newData.isNumber() && (newData.val() === 300000 || newData.val() === 600000 || newData.val() === 900000) && (!data.exists() || newData.val() === data.val()) && (data.exists() || !data.parent().exists())"
         },
@@ -102,6 +99,23 @@
         },
         "reclaimWith": {
           ".validate": "newData.isString() && newData.val().matches(/^[A-HJKMNP-Z2-9]{24}$/)"
+        },
+        "reactions": {
+          "$color": {
+            ".validate": "$color.matches(/^(w|b)$/) && newData.hasChildren(['i', 't']) && ((newData.child('i').val() === data.child('i').val() && newData.child('t').val() === data.child('t').val()) || (newData.parent().parent().child('players/' + $color).val() === auth.uid && (newData.parent().parent().child('status').val() === 'playing' || newData.parent().parent().child('status').val() === 'over') && (!data.exists() || newData.child('t').val() >= data.child('t').val() + 2000)))",
+            "i": {
+              ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 5"
+            },
+            "t": {
+              ".validate": "newData.isNumber() && (newData.val() === data.val() || newData.val() === now)"
+            },
+            "$other": {
+              ".validate": false
+            }
+          }
+        },
+        "$other": {
+          ".validate": false
         }
       }
     },

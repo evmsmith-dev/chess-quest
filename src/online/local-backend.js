@@ -106,6 +106,12 @@ export async function createLocalBackend() {
       if (color) next.drawOffer = color; else delete next.drawOffer;
       return next;
     }),
+    react: (code, color, index) => transact(code, (g) => {
+      if (!g || colorOf(g, uid) !== color || !["playing", "over"].includes(g.status) || !Number.isInteger(index) || index < 0 || index > 5) return null;
+      const now = Date.now();
+      if (g.reactions?.[color] && now < g.reactions[color].t + 2000) return null;
+      return { ...g, reactions: { ...g.reactions, [color]: { i: index, t: now } } };
+    }),
     setRematch: (code, newCode) => transact(code, (g) => (g && !g.rematch && colorOf(g, uid) ? { ...g, rematch: newCode } : null)),
     setPresence(code, color) {
       presence.push([code, color]);

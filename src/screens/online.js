@@ -13,7 +13,7 @@ import { startReview } from "./review.js";
 import { setting } from "../lib/settings.js";
 import { getBackend } from "../online/backend.js";
 import { isOffline, onConnectionChange } from "../online/connection.js";
-import { moveList, GAME_DAYS, avatarOf, clockAt, outOfTime, turnOf, AVATARS } from "../online/common.js";
+import { moveList, GAME_DAYS, avatarOf, clockAt, outOfTime, turnOf, AVATARS, REACTIONS, REACTION_GAP_MS } from "../online/common.js";
 import { openOverlay, closeTopThen } from "../ui/overlays.js";
 import { confirm } from "./game.js";
 
@@ -186,6 +186,7 @@ function update(rec) {
     return;
   }
   O.rec = rec;
+  showNewReaction(rec);
   // This device's seat now shows a different player number: Firebase replaced ours (after 30
   // days). Take the seat back with the seat key, once; the next update shows the result.
   if (rec.players?.[O.color] && rec.players[O.color] !== O.backend.uid && rec.status !== "over") {
@@ -329,6 +330,7 @@ function render() {
     { label: "⇅ Flip", ariaLabel: "Flip the board", onClick: () => board.setOrientation(board.orientation === "w" ? "b" : "w") },
     { label: "🤝 Draw", id: "ctl-draw", onClick: offerDraw, disabled: rec.drawOffer === O.color },
     { label: "🏳️ Resign", onClick: resign },
+    ...reactButton(),
   ]);
 }
 
@@ -339,7 +341,7 @@ function resultControls() {
   else buttons.unshift({ label: "🏠 Home", onClick: () => backToHome() });
   if (rec.rematch && rec.rematch !== O.startedRematch) buttons.push({ label: "🔁 Join rematch", kind: "primary", onClick: () => joinRematch(rec.rematch) });
   else if (!rec.rematch) buttons.push({ label: "🔁 Rematch", kind: "primary", onClick: startRematch });
-  setControls(buttons);
+  setControls([...buttons, ...reactButton()]);
   if (rec.rematch && rec.rematch !== O.startedRematch) setMessage("Your opponent wants a rematch!", "info");
 }
 
@@ -417,6 +419,58 @@ byId("message").addEventListener("click", async (e) => {
   toast(state === "granted" ? "You'll get a notification when it's your turn." : "No notifications. You can change this in Settings.");
   render();
 });
+
+// ---------- Reactions (a fixed set of emoji: no typing, no chat) ----------
+
+const reactButton = () => (setting("reactions") ? [{ label: "😊", id: "ctl-react", ariaLabel: "Send a reaction", onClick: openReactions }] : []);
+
+function openReactions() {
+  if (!O?.rec) return;
+  byId("react-options").innerHTML = REACTIONS.map((r, i) => `<button type="button" class="react-btn" data-react="${i}"><span class="react-emoji" aria-hidden="true">${r.emoji}</span><span>${r.label}</span></button>`).join("");
+  openOverlay("react-overlay", { focus: "[data-react]" });
+}
+byId("react-options").addEventListener("click", (e) => {
+  const i = Number(e.target.closest("[data-react]")?.dataset.react);
+  if (!Number.isInteger(i)) return;
+  closeTopThen(() => sendReaction(i));
+});
+
+async function sendReaction(i) {
+  if (!O?.rec) return;
+  const now = Date.now();
+  if (O.lastReactionSent && now - O.lastReactionSent < REACTION_GAP_MS) { toast("One moment…"); return; }
+  O.lastReactionSent = now;
+  popReaction("bar-bottom", i, "You");
+  if (!(await O.backend.react(O.code, O.color, i))) toast("Couldn't send that. Check your internet connection.");
+}
+
+/** Shows the opponent's newest reaction once (not old ones from before this device opened the game). */
+function showNewReaction(rec) {
+  const latest = rec.reactions?.[opponent()];
+  const t = latest?.t || 0;
+  if (O.seenReaction === undefined) { O.seenReaction = t; return; }
+  if (t <= O.seenReaction) return;
+  O.seenReaction = t;
+  if (!setting("reactions") || O.reviewing || !REACTIONS[latest.i]) return;
+  if (O.backend.serverNow() - t > 30000) return; // arrived late (after being offline): skip it
+  popReaction("bar-top", latest.i, opponentName() === "Opponent" ? "Your opponent" : opponentName());
+}
+
+/** A reaction bubble that pops up by a player's bar and floats away. */
+function popReaction(barId, i, who) {
+  const bar = byId(barId);
+  const r = REACTIONS[i];
+  if (!bar || bar.hidden || !r) return;
+  const box = bar.getBoundingClientRect();
+  const pop = document.createElement("div");
+  pop.className = "reaction-pop";
+  pop.setAttribute("role", "status");
+  pop.innerHTML = `<span class="react-emoji" aria-hidden="true">${r.emoji}</span><span>${r.label}</span><span class="visually-hidden">${escapeHtml(who)}: ${r.label}</span>`;
+  pop.style.left = `${Math.max(8, box.left + 48)}px`;
+  pop.style.top = `${box.top + box.height / 2}px`;
+  document.body.append(pop);
+  setTimeout(() => pop.remove(), 2800);
+}
 
 // ---------- Actions ----------
 
