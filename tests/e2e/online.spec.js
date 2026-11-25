@@ -84,7 +84,7 @@ test("resign ends the game for both, and a rematch swaps sides", async ({ contex
   await expect(guest.locator("#result-title")).toHaveText("Your opponent wins");
   await guest.locator("#result-primary").click(); // Rematch
   await expect(guest.locator(".game-code")).toBeVisible();
-  await host.locator("#result-secondary").click(); // See the board
+  await host.locator("#result-overlay .overlay-close").click();
   await host.locator("#controls").getByRole("button", { name: /Join rematch/ }).click();
   // Sides swapped: the guest is White now and moves first.
   await expect(guest.locator("#message")).toContainText("Your move. You play White");
@@ -191,10 +191,11 @@ test("friends: save a friend, then challenge them from Play online", async ({ co
   await host.locator("#friend-name").fill("Sam");
   await host.locator("#save-friend").click();
   await expect(host.locator("#ctl-friend")).toHaveCount(0);
-  // The host challenges Sam from Play online.
+  // The host challenges Sam from Play online. The game just played counts toward the record.
   await host.goBack();
   await host.locator("#online-btn").click();
   await expect(host.locator("#friend-list")).toContainText("Sam");
+  await expect(host.locator("#friend-list")).toContainText("1 win · 0 losses");
   await host.locator("[data-challenge]").click();
   await expect(host.locator("#message")).toContainText("Waiting for Sam");
   // The other device sees the challenge on Home (not the device that sent it) and joins.
@@ -405,4 +406,78 @@ test("on a shorter iPad, the game code stays inside its box and the buttons stay
   });
   expect(box.inside).toBe(true);
   expect(box.controlsBottom).toBeLessThanOrEqual(box.height);
+});
+
+test("a finished online game can be reviewed, and Back returns to it", async ({ context }) => {
+  const { host, guest } = await twoPlayers(context);
+  await tapMove(host, "e2", "e4");
+  await expect.poll(() => pieceOn(guest, "e4")).toBe("wp");
+  await guest.locator("#controls").getByRole("button", { name: /Resign/ }).click();
+  await guest.locator("#confirm-ok").click();
+  await expect(host.locator("#result-secondary")).toHaveText("🔍 Review game");
+  await host.locator("#result-secondary").click();
+  await expect(host.locator("#play-title")).toHaveText("Game review");
+  await expect(host.locator("#play-sub")).toContainText("Online · vs Opponent");
+  await host.goBack();
+  await expect(host.locator("#play-title")).toHaveText("Online game");
+  await expect(host.locator("#ctl-review")).toBeVisible();
+  await expect(host.locator("#controls")).toContainText("Rematch");
+  await expect.poll(() => pieceOn(host, "e4")).toBe("wp");
+});
+
+/** A fake Notification API and service worker that record what was shown and closed. */
+async function fakeNotifications(page, permission = "default") {
+  await page.addInitScript((permission) => {
+    window.__shown = [];
+    window.__closed = 0;
+    class FakeNotification {
+      static permission = permission;
+      static async requestPermission() { FakeNotification.permission = "granted"; return "granted"; }
+    }
+    window.Notification = FakeNotification;
+    const reg = {
+      showNotification: async (title, options) => { window.__shown.push({ title, body: options.body, tag: options.tag }); },
+      getNotifications: async () => window.__shown.map(() => ({ close: () => { window.__closed++; } })),
+    };
+    Object.defineProperty(navigator, "serviceWorker", { configurable: true, value: { ready: Promise.resolve(reg), getRegistration: async () => reg, register: async () => reg, addEventListener() {}, controller: null } });
+  }, permission);
+}
+
+test("'Your move' notifications: offered from a tap, shown in the background, cleared on return", async ({ context }) => {
+  const host = await context.newPage();
+  const guest = await context.newPage();
+  await fakeNotifications(host);
+  await openApp(host, { online: true, clock: false });
+  await openApp(guest, { online: true, clock: false });
+  const code = await createGame(host, "w");
+  await host.locator("#notify-offer").click();
+  await expect(host.locator("#toast")).toContainText("You'll get a notification");
+  await expect(host.locator("#notify-offer")).toHaveCount(0);
+  await lookAway(host);
+  await joinGame(guest, code);
+  await expect.poll(() => host.evaluate(() => window.__shown.length)).toBe(1);
+  const first = await host.evaluate(() => window.__shown[0]);
+  expect(first.title).toBe("♟ Your opponent joined!");
+  expect(first.body).toContain("make the first move");
+  await lookAway(host, false);
+  await expect.poll(() => host.evaluate(() => window.__closed)).toBeGreaterThan(0);
+  // A move while away: the notification says what was played.
+  await tapMove(host, "e2", "e4");
+  await lookAway(host);
+  await expect.poll(() => pieceOn(guest, "e4")).toBe("wp");
+  await tapMove(guest, "e7", "e5");
+  await expect.poll(() => host.evaluate(() => window.__shown.length)).toBe(2);
+  expect((await host.evaluate(() => window.__shown[1])).body).toBe("Your opponent played e5.");
+});
+
+test("Settings shows whether notifications are allowed", async ({ page }) => {
+  await fakeNotifications(page);
+  await openApp(page);
+  await page.locator("#settings-btn").click();
+  await expect(page.locator("#notify-btn")).toHaveText("🔔 Also show a notification");
+  await page.locator("#notify-btn").click();
+  await expect(page.locator("#notify-btn")).toHaveText("🔔 Notifications are on");
+  await expect(page.locator("#notify-btn")).toBeDisabled();
+  await page.locator('[data-setting="turnAlerts"]').uncheck();
+  await expect(page.locator("#notify-btn")).toBeHidden();
 });
