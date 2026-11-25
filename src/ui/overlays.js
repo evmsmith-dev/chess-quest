@@ -115,9 +115,18 @@ export function initOverlays() {
     const next = afterClose.shift();
     if (next) setTimeout(next, 0);
   });
+  // On a touch screen, the tap that opens a pop-up (a promotion, say) ends on the pop-up's own
+  // backdrop, and the browser sends it there as a click. So a backdrop or ✕ only closes the pop-up
+  // when the press also started on it. (Keyboard "clicks" have no press and always count.)
+  let pressedOn = null;
+  document.addEventListener("pointerdown", (event) => { pressedOn = event.target; }, true);
   document.addEventListener("click", (event) => {
-    if (event.target.closest("[data-close]") && overlays.length) closeTop();
-    else if (event.target.closest("[data-back]")) goBack();
+    const close = event.target.closest("[data-close]");
+    const pressed = pressedOn;
+    pressedOn = null;
+    if (close && overlays.length) {
+      if (event.detail === 0 || (pressed && close.contains(pressed))) closeTop();
+    } else if (event.target.closest("[data-back]")) goBack();
   });
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape" && overlays.length) closeTop();
