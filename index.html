@@ -191,6 +191,7 @@
       <div class="toggles">
         <label class="toggle"><span>Sound effects</span><input type="checkbox" data-setting="sound"></label>
         <label class="toggle" id="vibration-toggle"><span>Vibration</span><input type="checkbox" data-setting="vibration"></label>
+        <label class="toggle"><span>Emoji reactions<small>Online games: send and see a few friendly emoji. There’s no typing or chat</small></span><input type="checkbox" data-setting="reactions"></label>
         <label class="toggle"><span>“Your move” alerts<small>Online games: a chime and a badge when it’s your turn and the app is in the background</small></span><input type="checkbox" data-setting="turnAlerts"></label>
         <button type="button" id="notify-btn" class="install-setting-btn notify-btn" hidden>🔔 Also show a notification</button>
         <label class="toggle"><span>Drag to move<small>Off: tap a piece, then tap where it goes. Stops slips while dragging</small></span><input type="checkbox" data-setting="dragMoves"></label>
@@ -294,7 +295,7 @@
         <p id="online-error" class="form-error" role="alert" hidden></p>
         <details class="privacy-details">
           <summary>What's stored?</summary>
-          <p>Only what's needed to play: the moves, each player's avatar, the clock times, and a random player number made by the app (not linked to any account, email or name). A saved friend is a private link only your two devices know; the nickname you give a friend stays on this device. The daily puzzle adds one to two anonymous counts (solved, and solved first try). Games are deleted after 7 days. Nothing is used for ads or tracking. To keep out fake apps and bots, Google's reCAPTCHA checks in the background that requests come from the real Chess Quest app; it never shows a puzzle.</p>
+          <p>Only what's needed to play: the moves, each player's avatar, the clock times, the latest emoji reaction (one of six, chosen from a list: there's no typing), and a random player number made by the app (not linked to any account, email or name). A saved friend is a private link only your two devices know; the nickname you give a friend stays on this device. The daily puzzle adds one to two anonymous counts (solved, and solved first try). Games are deleted after 7 days. Nothing is used for ads or tracking. To keep out fake apps and bots, Google's reCAPTCHA checks in the background that requests come from the real Chess Quest app; it never shows a puzzle.</p>
         </details>
       </div>
     </div>
@@ -322,7 +323,7 @@
       <p>Your lesson stars, puzzle progress, daily streak, settings, saved games, friends' nicknames and two-player names are kept on this phone or tablet only. They're never sent anywhere. The app asks the browser to keep them even when the device is low on space. Your record against each friend is kept here too. If you allow notifications, "Your move" notifications are made by this device itself: no notification server or tracking ID is involved. Uninstalling the app or clearing the browser's site data deletes them.</p>
       <h3>Online play (only if you use it)</h3>
       <ul>
-        <li><strong>A game stores:</strong> the moves, each player's avatar (one of 12 animals), the clock times, and a random player number the app makes for this device. It isn't linked to any name, email or account.</li>
+        <li><strong>A game stores:</strong> the moves, each player's avatar (one of 12 animals), the latest emoji reaction (one of six from a list, never typed text), the clock times, and a random player number the app makes for this device. It isn't linked to any name, email or account.</li>
         <li><strong>A seat key</strong>, a random code that lets this device rejoin its own game, is stored where nobody can read it.</li>
         <li><strong>Games are deleted after 7 days.</strong> Player numbers are deleted after 30 days. Friend links (a private code only the two devices know) are deleted after 60 days without use.</li>
         <li><strong>Daily puzzle:</strong> solving it adds one to two anonymous counts for that day (solved, and solved on the first try). Nothing else is stored.</li>
@@ -397,6 +398,15 @@
       <h2 id="drill-heading">⚡ Speed drill</h2>
       <p class="overlay-note">Solve as many puzzles as you can in 3 minutes. Three mistakes and it's over. Pick a set:</p>
       <div id="drill-list" class="menu-list"></div>
+    </div>
+  </div>
+
+  <div id="react-overlay" class="overlay" role="dialog" aria-modal="true" aria-labelledby="react-heading" hidden>
+    <div class="overlay-backdrop" data-close></div>
+    <div class="overlay-card">
+      <button type="button" class="overlay-close" data-close aria-label="Close">✕</button>
+      <h2 id="react-heading">Send a reaction</h2>
+      <div id="react-options" class="react-grid"></div>
     </div>
   </div>
 

@@ -419,6 +419,18 @@ html.no-coords .coord { display: none; }
 .friend-list .friend-avatar { font-size: 1.5rem; }
 .friend-list .friend-name { flex: 1; min-width: 0; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .friend-record { display: block; font-weight: 400; font-size: 0.82rem; color: var(--muted); }
+.react-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 12px; }
+.react-btn { display: flex; align-items: center; gap: 8px; min-height: 52px; padding: 8px 12px; border: 0; border-radius: 14px; background: var(--bg); font-weight: 600; text-align: left; }
+.react-emoji { font-size: 1.6rem; line-height: 1; }
+.reaction-pop { position: fixed; z-index: 60; display: flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; background: var(--card); color: var(--text); font-weight: 700; box-shadow: 0 6px 20px rgb(0 0 0 / 0.25); pointer-events: none; transform: translateY(-50%); animation: reaction-pop 2.8s ease-out forwards; }
+@keyframes reaction-pop {
+  0% { opacity: 0; transform: translateY(-50%) scale(0.6); }
+  10% { opacity: 1; transform: translateY(-50%) scale(1.08); }
+  18% { transform: translateY(-50%) scale(1); }
+  75% { opacity: 1; transform: translateY(-50%); }
+  100% { opacity: 0; transform: translateY(calc(-50% - 24px)); }
+}
+@media (prefers-reduced-motion: reduce) { .reaction-pop { animation: none; } }
 .inline-btn { display: block; margin: 10px auto 0; min-height: 44px; padding: 8px 16px; border: 0; border-radius: 12px; font-weight: 700; background: var(--primary-soft); color: var(--primary-dark); }
 .notify-btn:disabled { opacity: 0.75; }
 .friend-list .primary { border: 0; border-radius: 999px; padding: 6px 14px; min-height: 40px; font-weight: 700; }

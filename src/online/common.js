@@ -34,6 +34,19 @@
 
 export const AVATARS = ["🦊", "🐼", "🦉", "🐸", "🐯", "🐙", "🦄", "🐢", "🦁", "🐧", "🐨", "🐲"];
 
+// Reactions: a fixed set, never free text (there's no chat). Stored as an index, like avatars:
+// reactions: { w: { i: 0, t: <server time> } }, one per player, newest only. The database rules
+// allow one every REACTION_GAP_MS.
+export const REACTIONS = [
+  { emoji: "👍", label: "Nice move!" },
+  { emoji: "😮", label: "Wow!" },
+  { emoji: "😄", label: "Ha ha!" },
+  { emoji: "🤔", label: "Hmm…" },
+  { emoji: "👏", label: "Well played!" },
+  { emoji: "🤝", label: "Good game!" },
+];
+export const REACTION_GAP_MS = 2000;
+
 /** The stored number for an avatar (0 if it isn't one of AVATARS). */
 export const avatarIndex = (emoji) => Math.max(0, AVATARS.indexOf(emoji));
 

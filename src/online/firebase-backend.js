@@ -142,6 +142,9 @@ export async function createFirebaseBackend(config, appCheckSiteKey = null, appC
         return true;
       } catch { return false; }
     },
+    async react(code, color, index) {
+      try { await set(ref(db, `games/${code}/reactions/${color}`), { i: index, t: serverTimestamp() }); return true; } catch { return false; }
+    },
     async setRematch(code, newCode) {
       try { await set(ref(db, `games/${code}/rematch`), newCode); return true; } catch { return false; }
     },
