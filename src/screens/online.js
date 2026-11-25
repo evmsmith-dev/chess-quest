@@ -8,7 +8,9 @@ import { openScreen, currentScreen, backToHome } from "../ui/overlays.js";
 import { readJson, writeJson } from "../storage.js";
 import { play } from "../ui/audio.js";
 import { buzz } from "../ui/haptics.js";
-import { alertPlayer, clearAlert } from "../ui/turnalert.js";
+import { alertPlayer, clearAlert, notificationPermission, enableNotifications } from "../ui/turnalert.js";
+import { startReview } from "./review.js";
+import { setting } from "../lib/settings.js";
 import { getBackend } from "../online/backend.js";
 import { isOffline, onConnectionChange } from "../online/connection.js";
 import { moveList, GAME_DAYS, avatarOf, clockAt, outOfTime, turnOf, AVATARS } from "../online/common.js";
@@ -42,20 +44,54 @@ export const friends = () => readJson("friends", []);
 export const saveFriends = (list) => { writeJson("friends", list); hooks.onChange(); };
 const friendByPair = (id) => friends().find((f) => f.id === id);
 
+// Results against each friend, on this device only: { [friend link]: { w, l, d, codes } }, where
+// w counts this player's wins and codes are the last games counted (so none is counted twice).
+export const friendRecords = () => readJson("friendRecords", {});
+export function forgetFriendRecord(id) {
+  const all = friendRecords();
+  delete all[id];
+  writeJson("friendRecords", all);
+}
+/** "3–2" or "3–2–1" (wins–losses–draws), or "" before the first game. */
+export function recordText(record) {
+  if (!record || !(record.w + record.l + record.d)) return "";
+  return `${record.w}–${record.l}${record.d ? `–${record.d}` : ""}`;
+}
+const friendIdOf = () => O?.friendId || O?.rec?.friendPair || null;
+
+/** Counts the finished game toward the record with this friend (once), if they're saved. */
+function countForFriend() {
+  const id = friendIdOf();
+  const rec = O?.rec;
+  if (!id || !friendByPair(id) || rec?.status !== "over" || !rec.result) return;
+  const all = friendRecords();
+  const record = all[id] || { w: 0, l: 0, d: 0, codes: [] };
+  if (record.codes.includes(O.code)) return;
+  const { winner } = rec.result;
+  if (winner === "draw") record.d++;
+  else if (winner === O.color) record.w++;
+  else record.l++;
+  record.codes = [...record.codes, O.code].slice(-30);
+  all[id] = record;
+  writeJson("friendRecords", all);
+  hooks.onChange();
+}
+
 const formatClock = (ms) => {
   const total = Math.ceil(ms / 1000);
   return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
 };
 
 /** Opens the game `code`, where this device plays `color`. `friendName` when it's a challenge. */
-export async function openOnlineGame(code, color, { friendName = null, inviteId = null } = {}) {
+export async function openOnlineGame(code, color, { friendName = null, inviteId = null, friendId = null } = {}) {
   if (isOffline()) throw new Error("offline");
   const backend = await getBackend();
   if (!backend) return;
-  writeJson("onlineGame", { code, color });
+  friendId = friendId || inviteId || null;
+  writeJson("onlineGame", { code, color, friendId });
   hooks.onChange();
   if (O) leave();
-  O = { code, color, backend, game: new Chess(), rec: null, token: 0, sending: false, shownResult: false, broken: false, friendName, inviteId };
+  O = { code, color, backend, game: new Chess(), rec: null, token: 0, sending: false, shownResult: false, broken: false, friendName, inviteId, friendId };
   if (currentScreen() !== "play") openScreen("play", { onLeave: leave });
   useMode(mode);
   setTitle("Online game", `Game code ${code}`);
@@ -169,8 +205,10 @@ function update(rec) {
 
 /** "Your move!" (and friends) when something changed for this player while they looked away. */
 function alertIfNeeded(before, now) {
-  if (now.status === "over" && before.status !== "over") alertPlayer("Game over");
-  else if (now.myTurn && !before.myTurn) alertPlayer(before.status === "waiting" ? "Your opponent joined" : "Your move");
+  const who = O.friendName || friendByPair(friendIdOf())?.name || "Your opponent";
+  const last = O.game.history().at(-1);
+  if (now.status === "over" && before.status !== "over") alertPlayer("Game over", "Tap to see how it ended.");
+  else if (now.myTurn && !before.myTurn) alertPlayer(before.status === "waiting" ? "Your opponent joined" : "Your move", before.status === "waiting" ? `${who} joined. You play White: make the first move.` : last ? `${who} played ${last}.` : undefined);
   else if (now.rematch && now.rematch !== before.rematch && now.rematch !== O.startedRematch) alertPlayer("Rematch?");
 }
 
@@ -229,7 +267,7 @@ async function sendMove(spec) {
 // ---------- Drawing the screen ----------
 
 function render() {
-  if (!O || !O.rec) return;
+  if (!O || !O.rec || O.reviewing) return;
   const rec = O.rec;
   const game = O.game;
   const opp = opponent();
@@ -240,7 +278,7 @@ function render() {
   const time = clockAt(rec, O.backend.serverNow());
   const clock = (color) => (time ? `<span class="bar-clock${time[color] < 30000 ? " is-low" : ""}${rec.status === "playing" && turnOf(rec) === color ? " is-running" : ""}" data-clock="${color}" aria-label="Time left">${formatClock(time[color])}</span>` : "");
   const oppStatus = rec.status === "waiting" ? "not joined yet" : away ? "offline" : !time && rec.status === "playing" && game.turn() === opp ? '<span class="thinking">thinking</span>' : "";
-  const oppName = O.friendName || friendByPair(rec.friendPair)?.name || "Opponent";
+  const oppName = opponentName();
   setBars(
     { name: rec.players?.[opp] ? escapeHtml(oppName) : "Waiting…", emoji: rec.players?.[opp] ? avatarOf(rec, opp) : "❔", captured: caps[opp], color: opp, plus: plus(opp), status: oppStatus + clock(opp) },
     { name: "You", emoji: avatarOf(rec, O.color), captured: caps[O.color], color: O.color, plus: plus(O.color), status: (O.sending ? "sending… " : "") + clock(O.color) },
@@ -269,7 +307,7 @@ function render() {
     const lead = O.friendName
       ? `<strong>Waiting for ${escapeHtml(O.friendName)}.</strong> They'll see your challenge when they open Chess Quest. You can also send the code:`
       : "<strong>Waiting for your opponent.</strong> Send them this code, or share a link:";
-    setMessage(`${lead}<span class="game-code" aria-label="Game code ${O.code.split("").join(" ")}">${O.code}</span>${rec.clock ? `<span class="task-meta">⏱ ${rec.clock / 60000} minutes each</span>` : ""}`);
+    setMessage(`${lead}<span class="game-code" aria-label="Game code ${O.code.split("").join(" ")}">${O.code}</span>${rec.clock ? `<span class="task-meta">⏱ ${rec.clock / 60000} minutes each</span>` : ""}${notifyOffer()}`);
     setControls([
       { label: "✕ Cancel", id: "ctl-cancel", ariaLabel: "Cancel game", onClick: cancelGame },
       { label: "📋 Copy", ariaLabel: "Copy code", onClick: copyCode },
@@ -296,8 +334,9 @@ function render() {
 
 function resultControls() {
   const rec = O.rec;
-  const buttons = [{ label: "🏠 Home", onClick: () => backToHome() }];
-  if (!(rec.friendPair && friendByPair(rec.friendPair))) buttons.push({ label: "🤝 Add friend", id: "ctl-friend", onClick: addFriend });
+  const buttons = [{ label: "🔍 Review", id: "ctl-review", onClick: reviewGame }];
+  if (!friendByPair(friendIdOf())) buttons.push({ label: "🤝 Add friend", id: "ctl-friend", onClick: addFriend });
+  else buttons.unshift({ label: "🏠 Home", onClick: () => backToHome() });
   if (rec.rematch && rec.rematch !== O.startedRematch) buttons.push({ label: "🔁 Join rematch", kind: "primary", onClick: () => joinRematch(rec.rematch) });
   else if (!rec.rematch) buttons.push({ label: "🔁 Rematch", kind: "primary", onClick: startRematch });
   setControls(buttons);
@@ -307,6 +346,7 @@ function resultControls() {
 function finished() {
   O.shownResult = true;
   forget(O.code);
+  countForFriend();
   const { winner, reason } = O.rec.result || {};
   const draw = winner === "draw";
   const won = winner === O.color;
@@ -323,12 +363,60 @@ function finished() {
       emoji: won ? "🏆" : draw ? "🤝" : "🙂",
       title: won ? "You win!" : draw ? "Draw" : "Your opponent wins",
       text,
-      stats: [["Moves", Math.ceil(O.game.history().length / 2)]],
-      secondary: ["See the board", null],
+      stats: [["Moves", Math.ceil(O.game.history().length / 2)], ...friendStat()],
+      secondary: ["🔍 Review game", reviewGame],
       primary: ["Rematch", () => (O?.rec?.rematch ? joinRematch(O.rec.rematch) : startRematch())],
     });
   }, 600);
 }
+
+function opponentName() {
+  return O.friendName || friendByPair(friendIdOf())?.name || "Opponent";
+}
+
+/** ["vs Micah", "3–2"] for the result pop-up, when the opponent is a saved friend. */
+function friendStat() {
+  const id = friendIdOf();
+  const friend = friendByPair(id);
+  const text = friend && recordText(friendRecords()[id]);
+  return text ? [[`You vs ${friend.name}`, text]] : [];
+}
+
+/** The game review for a finished online game; Back returns to the game. */
+function reviewGame() {
+  if (!O?.rec || O.rec.status !== "over") return;
+  const mine = O;
+  const name = opponentName();
+  mine.reviewing = true;
+  startReview({
+    moves: mine.game.history({ verbose: true }).map((m) => m.from + m.to + (m.promotion || "")),
+    colors: [mine.color],
+    nameOf: () => "You",
+    opponentOf: () => (name === "Opponent" ? "your opponent" : name),
+    sub: `Online · vs ${name}`,
+    orientation: board.orientation,
+    onExit: () => {
+      if (O !== mine) return;
+      mine.reviewing = false;
+      useMode(mode);
+      setTitle("Online game", `Game code ${mine.code}`);
+      board.setPieces(piecesFromFen(mine.game.fen()), { animate: false });
+      render();
+    },
+  });
+}
+
+/** A button offering "Your move" notifications, while they haven't been allowed or refused. */
+function notifyOffer() {
+  if (!setting("turnAlerts") || notificationPermission() !== "default") return "";
+  return '<button type="button" class="inline-btn" id="notify-offer">🔔 Notify me when it\'s my turn</button>';
+}
+byId("message").addEventListener("click", async (e) => {
+  if (!e.target.closest("#notify-offer")) return;
+  const state = await enableNotifications();
+  toast(state === "granted" ? "You'll get a notification when it's your turn." : "No notifications. You can change this in Settings.");
+  render();
+});
 
 // ---------- Actions ----------
 
@@ -412,7 +500,7 @@ async function startRematch() {
       const latest = O.rec?.rematch;
       if (latest) { joinRematch(latest); return; }
     }
-    openOnlineGame(code, color, { friendName: O.friendName });
+    openOnlineGame(code, color, { friendName: O.friendName, friendId: friendIdOf() });
   } catch {
     setMessage("Couldn't start a rematch. Check your internet connection.", "bad");
   }
@@ -451,6 +539,7 @@ byId("save-friend").addEventListener("click", () => {
   const friend = { ...pendingFriend, name: typed || `Friend ${AVATARS[pendingFriend.avatar]}`, added: Date.now() };
   saveFriends([...friends().filter((f) => f.id !== friend.id), friend]);
   pendingFriend = null;
+  if (O?.rec?.friendPair === friend.id || !O?.friendId) { if (O) O.friendId = friend.id; countForFriend(); }
   closeTopThen(() => {
     toast(`${friend.name} saved. Challenge them from Play online.`);
     if (O) render();
@@ -464,7 +553,7 @@ async function joinRematch(code) {
   if (!O) return;
   try {
     const { color } = await O.backend.join(code, avatarOf(O.rec, O.color));
-    openOnlineGame(code, color, { friendName: O.friendName || friendByPair(O.rec.friendPair)?.name || null });
+    openOnlineGame(code, color, { friendName: O.friendName || friendByPair(friendIdOf())?.name || null, friendId: friendIdOf() });
   } catch {
     setMessage("Couldn't join the rematch.", "bad");
   }

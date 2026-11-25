@@ -4,10 +4,10 @@ import { initOverlays, openOverlay, openScreen, onScreenShown, closeTopThen } fr
 import { registerServiceWorker } from "./ui/update.js";
 import { initInstall, refreshInstall } from "./ui/install.js";
 import { hapticsAvailable } from "./ui/haptics.js";
-import { alertPlayer } from "./ui/turnalert.js";
+import { alertPlayer, notificationPermission, enableNotifications } from "./ui/turnalert.js";
 import { unlockAudio } from "./ui/audio.js";
 import { loadPieceSprite } from "./ui/board.js";
-import { getSettings, updateSettings, onSettingsChange } from "./lib/settings.js";
+import { getSettings, updateSettings, onSettingsChange, setting } from "./lib/settings.js";
 import { readJson, writeJson } from "./storage.js";
 import { dateKey } from "./lib/random.js";
 import { UNITS, ALL_LESSONS } from "./content/lessons.js";
@@ -16,7 +16,7 @@ import { warmUp } from "./chess/bot.js";
 import { miniBoard } from "./screens/boardscreen.js";
 import { newGame, newFriendGame, resumeGame, savedGame, savedFriendGame, setGameHooks, setNewGameOpener } from "./screens/game.js";
 import { startLesson, lessonProgress, nextLesson, setLessonHooks } from "./screens/lesson.js";
-import { openOnlineGame, savedOnlineGame, setOnlineHooks, friends, saveFriends, toast } from "./screens/online.js";
+import { openOnlineGame, savedOnlineGame, setOnlineHooks, friends, saveFriends, toast, friendRecords, forgetFriendRecord } from "./screens/online.js";
 import { getBackend, onlineConfigured } from "./online/backend.js";
 import { isOffline, onConnectionChange, withTimeout } from "./online/connection.js";
 import { AVATARS, cleanCode, INVITE_FRESH_MS } from "./online/common.js";
@@ -295,13 +295,20 @@ let onlineMinutes = readJson("onlineClock", 0);
 let onlineAvatar = readJson("onlineAvatar", AVATARS[0]);
 byId("avatar-options").innerHTML = AVATARS.map((a) => `<button type="button" data-avatar="${a}" aria-label="Avatar ${a}">${a}</button>`).join("");
 
+/** "You 3 – 2 · 1 draw" for a friend's card, or "No games yet". */
+function recordLine(record) {
+  if (!record || !(record.w + record.l + record.d)) return "No games yet";
+  return `${record.w} win${record.w === 1 ? "" : "s"} · ${record.l} loss${record.l === 1 ? "" : "es"}${record.d ? ` · ${record.d} draw${record.d === 1 ? "" : "s"}` : ""}`;
+}
+
 function renderOnline() {
   for (const b of document.querySelectorAll("[data-avatar]")) b.setAttribute("aria-pressed", String(b.dataset.avatar === onlineAvatar));
   for (const b of document.querySelectorAll("[data-online-color]")) b.setAttribute("aria-pressed", String(b.dataset.onlineColor === onlineColor));
   for (const b of document.querySelectorAll("[data-clock-minutes]")) b.setAttribute("aria-pressed", String(Number(b.dataset.clockMinutes) === onlineMinutes));
   const list = friends();
   byId("friends-section").hidden = !list.length;
-  byId("friend-list").innerHTML = list.map((f) => `<li><span class="friend-avatar" aria-hidden="true">${AVATARS[f.avatar] || "🙂"}</span><span class="friend-name">${escapeHtml(f.name)}</span><button type="button" class="primary" data-challenge="${f.id}">Challenge</button><button type="button" class="friend-remove" data-unfriend="${f.id}" aria-label="Remove ${escapeHtml(f.name)}">✕</button></li>`).join("");
+  const records = friendRecords();
+  byId("friend-list").innerHTML = list.map((f) => `<li><span class="friend-avatar" aria-hidden="true">${AVATARS[f.avatar] || "🙂"}</span><span class="friend-name">${escapeHtml(f.name)}<small class="friend-record">${recordLine(records[f.id])}</small></span><button type="button" class="primary" data-challenge="${f.id}">Challenge</button><button type="button" class="friend-remove" data-unfriend="${f.id}" aria-label="Remove ${escapeHtml(f.name)}">✕</button></li>`).join("");
 }
 byId("online-clock").addEventListener("click", (e) => {
   const minutes = e.target.closest("[data-clock-minutes]")?.dataset.clockMinutes;
@@ -315,6 +322,7 @@ byId("friend-list").addEventListener("click", async (e) => {
   if (remove) {
     const gone = friends().find((f) => f.id === remove);
     saveFriends(friends().filter((f) => f.id !== remove));
+    forgetFriendRecord(remove);
     renderOnline();
     if (gone) toast(`${gone.name} removed`);
     return;
@@ -422,7 +430,7 @@ byId("invite-join").addEventListener("click", async () => {
     const { color } = await withTimeout(inviteBackend.join(inv.code, onlineAvatar), TIMEOUT_MS);
     inviteBackend.clearInvite(inv.id);
     dismissInvite(inv.code);
-    await openOnlineGame(inv.code, color, { friendName: inv.friend.name });
+    await openOnlineGame(inv.code, color, { friendName: inv.friend.name, friendId: inv.friend.id });
   } catch (error) {
     if (error?.message === "timeout") { toast(CONNECT_ERROR); return; }
     dismissInvite(inv.code);
@@ -520,7 +528,7 @@ function applyTheme() {
 }
 
 for (const input of document.querySelectorAll("[data-setting]")) {
-  input.addEventListener("change", () => updateSettings({ [input.dataset.setting]: input.checked }));
+  input.addEventListener("change", () => { updateSettings({ [input.dataset.setting]: input.checked }); renderNotifyButton(); });
 }
 byId("board-options").addEventListener("click", (e) => {
   const choice = e.target.closest("[data-board-choice]")?.dataset.boardChoice;
@@ -538,7 +546,20 @@ onSettingsChange(applySettings);
 
 // ---------- Wiring ----------
 
-byId("settings-btn").addEventListener("click", () => openOverlay("settings-overlay"));
+byId("settings-btn").addEventListener("click", () => { renderNotifyButton(); openOverlay("settings-overlay"); });
+
+/** The Settings button for "Your move" notifications, which shows whether they're allowed. */
+function renderNotifyButton() {
+  const btn = byId("notify-btn");
+  const state = notificationPermission();
+  btn.hidden = state === "unsupported" || !setting("turnAlerts");
+  btn.disabled = state !== "default";
+  btn.textContent = state === "granted" ? "🔔 Notifications are on" : state === "denied" ? "🔕 Notifications are blocked in this browser's site settings" : "🔔 Also show a notification";
+}
+byId("notify-btn").addEventListener("click", async () => {
+  await enableNotifications();
+  renderNotifyButton();
+});
 // Share the app: the phone's share sheet with a link to the website, where people can open it
 // and install it. Without a share sheet (most computers), the link is copied instead.
 const APP_URL = new URL("./", location.href).href;
@@ -570,7 +591,7 @@ byId("continue-online-btn").addEventListener("click", async () => {
   const saved = savedOnlineGame();
   if (!saved) return;
   try {
-    await withTimeout(openOnlineGame(saved.code, saved.color), TIMEOUT_MS);
+    await withTimeout(openOnlineGame(saved.code, saved.color, { friendId: saved.friendId || null }), TIMEOUT_MS);
   } catch (error) {
     toast(errorText(error));
   }
