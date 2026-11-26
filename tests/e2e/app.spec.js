@@ -624,3 +624,17 @@ test("after a lesson quiz, a game's buttons sit side by side again (not stacked)
   await page.locator("#start-game-btn").click();
   await expect(page.locator("#controls")).not.toHaveClass(/is-quiz/);
 });
+
+test("the update banner shows on Home only, never over a lesson's buttons", async ({ page }) => {
+  await openApp(page);
+  // Stand in for a waiting update: the banner as the app shows it on Home.
+  await page.evaluate(() => {
+    const banner = document.createElement("div");
+    banner.id = "update-banner";
+    banner.innerHTML = "<p>✨ A new version is ready.</p>";
+    document.body.appendChild(banner);
+  });
+  await expect(page.locator("#update-banner")).toBeVisible();
+  await page.locator("#learn-btn").click();
+  await expect(page.locator("#update-banner")).toHaveCount(0);
+});
