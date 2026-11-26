@@ -27,6 +27,14 @@ const OPENERS = {
     await page.locator("#result-overlay .overlay-close").click();
     await page.locator("#ctl-friend").click();
   },
+  "challenge-overlay": async (page) => {
+    // A saved friend's challenge, already waiting when the app opens.
+    await page.evaluate((at) => {
+      localStorage.setItem("chessQuest_friends", JSON.stringify([{ id: "ABCDEFGHJKMNPQRS", name: "Sam", avatar: 2, added: 1 }]));
+      localStorage.setItem("chessQuest_localServer", JSON.stringify({ "pair:ABCDEFGHJKMNPQRS": { expires: at + 1e9, invite: { code: "ABCDEF", by: "local-other", at } } }));
+    }, await page.evaluate(() => Date.now()));
+    await page.reload();
+  },
   "react-overlay": async (page) => {
     const guest = await page.context().newPage();
     await openApp(guest);

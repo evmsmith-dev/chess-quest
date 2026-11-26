@@ -39,8 +39,9 @@ export function toast(text) {
 }
 
 // ---------- Friends (saved on this device only) ----------
-// [{ id, name, avatar, added }]: id is the private friend link, name is the nickname this
-// player chose (never sent anywhere), avatar is the friend's avatar number.
+// [{ id, name, avatar, added, uid }]: id is the private friend link, name is the nickname this
+// player chose (never sent anywhere), avatar is the friend's avatar number, uid is the friend's
+// anonymous player number (so a later game with them can line both devices up on one link).
 export const friends = () => readJson("friends", []);
 export const saveFriends = (list) => { writeJson("friends", list); hooks.onChange(); };
 const friendByPair = (id) => friends().find((f) => f.id === id);
@@ -59,6 +60,48 @@ export function recordText(record) {
   return `${record.w}–${record.l}${record.d ? `–${record.d}` : ""}`;
 }
 const friendIdOf = () => O?.friendId || O?.rec?.friendPair || null;
+
+/** Points the friend saved as `entry` at the link `id` instead (records move with it). */
+function relinkFriend(entry, id, uid) {
+  const old = entry.id;
+  saveFriends([...friends().filter((f) => f.id !== old && f.id !== id), { ...entry, id, ...(uid ? { uid } : {}) }]);
+  if (old !== id) {
+    const all = friendRecords();
+    if (all[old]) {
+      const into = all[id] || { w: 0, l: 0, d: 0, codes: [] };
+      all[id] = { w: into.w + all[old].w, l: into.l + all[old].l, d: into.d + all[old].d, codes: [...(all[old].codes || []), ...(into.codes || [])].slice(0, 20) };
+      delete all[old];
+      writeJson("friendRecords", all);
+    }
+    if (O && O.friendId === old) O.friendId = id;
+  }
+}
+
+/**
+ * Each player may have saved the other from a different game, so each device would hold its own
+ * link and a challenge sent on one would never reach the other. When this game is with a saved
+ * friend, share this device's link with the game (if it has none yet), or switch to the game's link.
+ */
+function syncFriendLink(rec) {
+  const theirUid = rec.players?.[opponent()];
+  if (!theirUid || theirUid === O.backend.uid) return;
+  const list = friends();
+  const entry = (O.friendId && list.find((f) => f.id === O.friendId))
+    || list.find((f) => f.uid === theirUid)
+    || (rec.friendPair && list.find((f) => f.id === rec.friendPair));
+  if (!entry || entry.uid === O.backend.uid) return; // (an entry for this device itself: only in tests)
+  if (!rec.friendPair) {
+    if (!O.linkShared) { O.linkShared = true; O.myPair = entry.id; O.backend.setFriendPair(O.code, entry.id); }
+    if (entry.uid !== theirUid) relinkFriend(entry, entry.id, theirUid);
+    return;
+  }
+  if (rec.friendPair === entry.id) {
+    if (entry.uid !== theirUid) relinkFriend(entry, entry.id, theirUid);
+    return;
+  }
+  relinkFriend(entry, rec.friendPair, theirUid);
+  toast(`Friend link with ${entry.name} updated, so your challenges reach each other.`);
+}
 
 /** Counts the finished game toward the record with this friend (once), if they're saved. */
 function countForFriend() {
@@ -189,6 +232,7 @@ function update(rec) {
   const previous = O.rec;
   O.rec = rec;
   showNewReaction(rec);
+  syncFriendLink(rec);
   // The other player just saved this one as a friend: say so, even over the result pop-up.
   if (previous && !previous.friendPair && theyAddedMe()) toast("Your opponent saved you as a friend. Add them too!");
   // This device's seat now shows a different player number: Firebase replaced ours (after 30
@@ -310,7 +354,7 @@ function render() {
   }
   if (rec.status === "waiting") {
     const lead = O.friendName
-      ? `<strong>Waiting for ${escapeHtml(O.friendName)}.</strong> They'll see your challenge when they open Chess Quest. You can also send the code:`
+      ? `<strong>Waiting for ${escapeHtml(O.friendName)}.</strong> They'll get a pop-up when they open Chess Quest in the next 30 minutes. Or send them the code:`
       : "<strong>Waiting for your opponent.</strong> Send them this code, or share a link:";
     setMessage(`${lead}<span class="game-code" aria-label="Game code ${O.code.split("").join(" ")}">${O.code}</span>${rec.clock ? `<span class="task-meta">⏱ ${rec.clock / 60000} minutes each</span>` : ""}${notifyOffer()}`);
     setControls([
@@ -604,13 +648,34 @@ async function addFriend() {
   byId("friend-name").value = "";
   byId("friend-name").placeholder = `Friend ${AVATARS[avatar]}`;
   byId("addfriend-avatar").textContent = AVATARS[avatar];
+  const others = friends().filter((f) => f.id !== id);
+  byId("existing-friends").hidden = !others.length;
+  byId("existing-friend-list").innerHTML = others.map((f) => `<button type="button" class="secondary" data-same-friend="${f.id}">${AVATARS[f.avatar] || "🙂"} This is ${escapeHtml(f.name)}</button>`).join("");
   openOverlay("addfriend-overlay", { focus: "#friend-name" });
 }
+
+// "This is Micah": the opponent is a friend saved from another game. Move that friend onto this
+// game's link, so both devices share it.
+byId("existing-friend-list").addEventListener("click", (event) => {
+  const button = event.target.closest("[data-same-friend]");
+  const entry = button && friends().find((f) => f.id === button.dataset.sameFriend);
+  if (!entry || !pendingFriend) return;
+  const uid = O?.rec?.players?.[opponent()];
+  const id = pendingFriend.id;
+  relinkFriend(entry, id, uid && uid !== O?.backend.uid ? uid : undefined);
+  pendingFriend = null;
+  if (O) { O.friendId = id; countForFriend(); }
+  closeTopThen(() => {
+    toast(`${entry.name} is linked to this game. Challenges will reach them.`);
+    if (O) render();
+  });
+});
 
 byId("save-friend").addEventListener("click", () => {
   if (!pendingFriend) return;
   const typed = byId("friend-name").value.replace(/[<>&"'`]/g, "").trim().slice(0, 16);
-  const friend = { ...pendingFriend, name: typed || `Friend ${AVATARS[pendingFriend.avatar]}`, added: Date.now() };
+  const uid = O?.rec?.players?.[opponent()];
+  const friend = { ...pendingFriend, name: typed || `Friend ${AVATARS[pendingFriend.avatar]}`, added: Date.now(), ...(uid && uid !== O?.backend.uid ? { uid } : {}) };
   saveFriends([...friends().filter((f) => f.id !== friend.id), friend]);
   pendingFriend = null;
   if (O?.rec?.friendPair === friend.id || !O?.friendId) { if (O) O.friendId = friend.id; countForFriend(); }
