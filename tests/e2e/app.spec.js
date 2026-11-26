@@ -608,3 +608,16 @@ test("the black king is drawn black (its white lines aren't filled in)", async (
   expect(fills.length).toBeGreaterThan(0);
   for (const fill of fills) expect(fill).toBe("none");
 });
+
+test("after a lesson quiz, a game's buttons sit side by side again (not stacked)", async ({ page }) => {
+  await openApp(page);
+  await page.locator("#learn-btn").click();
+  await page.locator('[data-lesson="opposition"]').click();
+  await page.locator("#tip-overlay .primary").click();
+  await expect(page.locator("#controls")).toHaveClass(/is-quiz/);
+  await page.goBack();
+  await page.goBack();
+  await page.locator("#new-game-btn").click();
+  await page.locator("#start-game-btn").click();
+  await expect(page.locator("#controls")).not.toHaveClass(/is-quiz/);
+});

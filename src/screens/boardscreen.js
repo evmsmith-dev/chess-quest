@@ -24,6 +24,7 @@ export function useMode(handlers) {
   mode = handlers;
   const screen = byId("play");
   screen.classList.remove("no-board");
+  byId("controls").classList.remove("is-quiz"); // a lesson quiz stacks its answers; nothing else should
   byId("coach").hidden = true;
   byId("offer").hidden = true;
   byId("task-dots").hidden = true;
