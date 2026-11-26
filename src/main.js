@@ -1,11 +1,13 @@
 // Chess Quest: Home, the Learn path, Challenges, the Rulebook, settings and new games.
 // The board screen's three modes live in src/screens/ (game.js, lesson.js, puzzle.js).
-import { initOverlays, openOverlay, openScreen, onScreenShown, closeTopThen } from "./ui/overlays.js";
+import { initOverlays, openOverlay, openScreen, onScreenShown, closeTopThen, currentScreen } from "./ui/overlays.js";
+import { BADGES, BADGE_GROUPS, checkBadges, earnedBadges, best } from "./lib/achievements.js";
+import { coachSvg, coachLine } from "./ui/coach.js";
 import { registerServiceWorker } from "./ui/update.js";
 import { initInstall, refreshInstall } from "./ui/install.js";
 import { hapticsAvailable } from "./ui/haptics.js";
 import { alertPlayer, notificationPermission, enableNotifications } from "./ui/turnalert.js";
-import { unlockAudio } from "./ui/audio.js";
+import { unlockAudio, play } from "./ui/audio.js";
 import { loadPieceSprite } from "./ui/board.js";
 import { getSettings, updateSettings, onSettingsChange, setting } from "./lib/settings.js";
 import { readJson, writeJson } from "./storage.js";
@@ -86,6 +88,11 @@ function renderHome() {
   const solvedCount = SETS.reduce((n, s) => n + (solved[s.id]?.length || 0), 0);
   byId("challenge-bar").style.width = total ? `${(solvedCount / total) * 100}%` : "0";
   byId("challenge-summary").textContent = total ? `${solvedCount} of ${total} solved` : "";
+
+  // Achievements.
+  const earned = earnedBadges() || {};
+  const badgeCount = BADGES.filter((b) => earned[b.id]).length;
+  byId("achievements-summary").textContent = badgeCount ? `${badgeCount} of ${BADGES.length} badges earned` : "Badges for the chess skills you learn";
 
   // Games.
   const games = readJson("games", {});
@@ -623,6 +630,7 @@ byId("daily-btn").addEventListener("click", () => {
 });
 
 onScreenShown((id) => {
+  if (id === "achievements") renderAchievements();
   if (id === "home") renderHome();
   if (id === "learn") renderLearn();
   if (id === "challenges") renderChallenges();
@@ -642,6 +650,86 @@ document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "visible" && !byId("home").hidden) { renderHome(); watchFriends(); }
 });
 
+// ---------- Achievements ----------
+
+let puzzlesReady = false;
+const setSizes = () => Object.fromEntries(SETS.map((s) => [s.id, puzzleList(s.id).length]));
+
+function runBadgeCheck() {
+  if (!puzzlesReady) return; // set sizes are needed first
+  const { fresh, first } = checkBadges(setSizes());
+  if (first && fresh.length) {
+    // Progress from before badges existed: one summary, not a flood.
+    showBadgeBanner(`<strong>🏅 You've already earned ${fresh.length} badge${fresh.length === 1 ? "" : "s"}!</strong><small>${cheer()}Tap to see them.</small>`);
+  } else {
+    for (const badge of fresh) showBadgeBanner(`<strong>🏅 Badge earned: ${badge.emoji} ${badge.title}</strong><small>${cheer()}Tap to see all your badges.</small>`);
+  }
+  if (fresh.length) {
+    if (currentScreen() === "home") renderHome();
+    if (currentScreen() === "achievements") renderAchievements();
+  }
+}
+/** The coach's cheer before the banner's instructions, or nothing with the coach turned off. */
+const cheer = () => (setting("coach") ? `${coachLine("badge")} ` : "");
+let badgeTimer = null;
+addEventListener("chessquest:progress", () => {
+  clearTimeout(badgeTimer);
+  badgeTimer = setTimeout(runBadgeCheck, 600);
+});
+
+const bannerQueue = [];
+let bannerHide = null;
+function showBadgeBanner(html) {
+  if (!setting("badgePopups")) return; // still earned: they're on the badge wall
+  bannerQueue.push(html);
+  if (byId("badge-banner").hidden) nextBanner();
+}
+function nextBanner() {
+  const banner = byId("badge-banner");
+  clearTimeout(bannerHide);
+  const html = bannerQueue.shift();
+  if (!html) { banner.hidden = true; return; }
+  byId("badge-banner-body").innerHTML = html;
+  banner.classList.toggle("no-coach-banner", !setting("coach"));
+  banner.hidden = false;
+  play("correct");
+  bannerHide = setTimeout(nextBanner, 6000);
+}
+byId("badge-banner-close").addEventListener("click", nextBanner);
+byId("badge-banner-body").addEventListener("click", () => {
+  bannerQueue.length = 0;
+  nextBanner();
+  if (currentScreen() === "achievements") return;
+  // A pop-up (like "Lesson complete!") may be open: close it first, then show the badges.
+  if (document.querySelector(".overlay:not([hidden])")) closeTopThen(() => openScreen("achievements"));
+  else openScreen("achievements");
+});
+
+function renderAchievements() {
+  const earned = earnedBadges() || {};
+  const count = BADGES.filter((b) => earned[b.id]).length;
+  document.querySelector("#achievements .coach-row").classList.toggle("no-coach", !setting("coach"));
+  byId("achievements-intro").textContent = !setting("coach") ? `${count} of ${BADGES.length} badges earned.` : count === 0
+    ? "Every badge here is a chess skill. Let's earn the first one together!"
+    : count === BADGES.length
+      ? "You've earned every badge. Bravo, champion!"
+      : `You've earned ${count} of ${BADGES.length} badges. Each one is a skill you've learned!`;
+  byId("badge-wall").innerHTML = BADGE_GROUPS.map((group) => {
+    const list = BADGES.filter((b) => b.group === group);
+    const got = list.filter((b) => earned[b.id]).length;
+    return `<section class="badge-group"><h3>${group} · ${got} of ${list.length}</h3><div class="badge-grid">${list.map((b) => {
+      const when = earned[b.id];
+      return `<div class="badge ${when ? "is-earned" : "is-locked"}" data-badge="${b.id}">
+        <span class="badge-emoji" aria-hidden="true">${b.emoji}</span>
+        <span class="badge-title">${when ? "" : '<span class="visually-hidden">Locked: </span>'}${b.title}</span>
+        <span class="badge-hint">${when ? `Earned ${new Date(when).toLocaleDateString()}` : b.hint}</span>
+      </div>`;
+    }).join("")}</div></section>`;
+  }).join("");
+}
+byId("achievements-btn").addEventListener("click", () => openScreen("achievements"));
+for (const id of ["achievements-coach", "tip-coach", "badge-banner-coach"]) byId(id).innerHTML = coachSvg(64, id === "achievements-coach" ? "cheer" : "happy");
+
 async function start() {
   initOverlays();
   applyTheme();
@@ -651,6 +739,9 @@ async function start() {
   renderHome();
   renderRules();
   await Promise.all([loadPieceSprite(), loadPuzzles()]);
+  puzzlesReady = true;
+  best("bestStreak", dailyStreak().streak);
+  runBadgeCheck();
   renderHome();
   warmUp();
   watchFriends();

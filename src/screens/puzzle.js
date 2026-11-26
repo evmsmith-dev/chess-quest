@@ -5,6 +5,7 @@ import { board, useMode, setTitle, setMessage, setControls, feelMove, chooseProm
 import { openScreen, currentScreen, backTo, backToHome } from "../ui/overlays.js";
 import { readJson, writeJson } from "../storage.js";
 import { recordDaily, streakInfo } from "../lib/progress.js";
+import { best } from "../lib/achievements.js";
 import { dateKey, hashString } from "../lib/random.js";
 import { play } from "../ui/audio.js";
 import { buzz } from "../ui/haptics.js";
@@ -380,6 +381,7 @@ function solved(move) {
     const record = recordDaily(dailyRecord(), P.daily, "puzzle", { mistakes: P.mistakes, hints: P.hints });
     writeJson("daily", record);
     const { streak } = dailyStreak(P.daily);
+    best("bestStreak", streak);
     window.confetti?.({ particleCount: 100, spread: 70, origin: { y: 0.6 }, disableForReducedMotion: true });
     // Today's anonymous stats arrive a moment later, if online play is available.
     dailyStats(P.daily, clean).then((stats) => {

@@ -91,6 +91,7 @@
           <button type="button" id="online-btn" class="play-choice"><span aria-hidden="true">🌐</span>Online</button>
         </div>
       </section>
+      <button type="button" id="achievements-btn" class="link-row"><span class="link-row-emoji" aria-hidden="true">🏅</span><span class="link-row-text"><strong>Achievements</strong><small id="achievements-summary">Badges for the chess skills you learn</small></span><span class="link-row-go" aria-hidden="true">›</span></button>
       <button type="button" id="rules-btn" class="link-row"><span class="link-row-emoji" aria-hidden="true">📖</span><span class="link-row-text"><strong>Rulebook</strong><small>Every rule of chess, with examples</small></span><span class="link-row-go" aria-hidden="true">›</span></button>
     </div>
   </main>
@@ -116,6 +117,19 @@
   </main>
 
   <!-- ==================== Rulebook ==================== -->
+  <main id="achievements" class="screen" hidden>
+    <header class="page-header">
+      <button type="button" class="icon-button" data-back aria-label="Back">←</button>
+      <h2>Achievements</h2>
+      <span class="header-spacer"></span>
+    </header>
+    <div class="coach-row">
+      <span id="achievements-coach" class="coach-avatar" aria-hidden="true"></span>
+      <p id="achievements-intro" class="coach-bubble"></p>
+    </div>
+    <div id="badge-wall" class="badge-wall"></div>
+  </main>
+
   <main id="rules" class="screen" hidden>
     <header class="page-header">
       <button type="button" class="icon-button" data-back aria-label="Back">←</button>
@@ -191,6 +205,8 @@
       <div class="toggles">
         <label class="toggle"><span>Sound effects</span><input type="checkbox" data-setting="sound"></label>
         <label class="toggle" id="vibration-toggle"><span>Vibration</span><input type="checkbox" data-setting="vibration"></label>
+        <label class="toggle"><span>Coach Knightly<small>The friendly coach on Tip Cards and badges. Off: plain tips, same badges</small></span><input type="checkbox" data-setting="coach"></label>
+        <label class="toggle"><span>Badge pop-ups<small>A banner when you earn a badge. Off: badges still appear in Achievements</small></span><input type="checkbox" data-setting="badgePopups"></label>
         <label class="toggle"><span>Emoji reactions<small>Online games: send and see a few friendly emoji. There’s no typing or chat</small></span><input type="checkbox" data-setting="reactions"></label>
         <label class="toggle"><span>“Your move” alerts<small>Online games: a chime and a badge when it’s your turn and the app is in the background</small></span><input type="checkbox" data-setting="turnAlerts"></label>
         <button type="button" id="notify-btn" class="install-setting-btn notify-btn" hidden>🔔 Also show a notification</button>
@@ -320,7 +336,7 @@
       <h2 id="privacy-heading">Privacy</h2>
       <p class="privacy-lead">Chess Quest doesn't ask for your name, email or age, has no accounts and no chat, and shows no ads. Nothing is used to track you.</p>
       <h3>On this device</h3>
-      <p>Your lesson stars, puzzle progress, daily streak, settings, saved games, friends' nicknames and two-player names are kept on this phone or tablet only. They're never sent anywhere. The app asks the browser to keep them even when the device is low on space. Your record against each friend is kept here too. If you allow notifications, "Your move" notifications are made by this device itself: no notification server or tracking ID is involved. Uninstalling the app or clearing the browser's site data deletes them.</p>
+      <p>Your lesson stars, puzzle progress, daily streak, settings, saved games, friends' nicknames and two-player names are kept on this phone or tablet only. They're never sent anywhere. The app asks the browser to keep them even when the device is low on space. Your record against each friend and your badges are kept here too. If you allow notifications, "Your move" notifications are made by this device itself: no notification server or tracking ID is involved. Uninstalling the app or clearing the browser's site data deletes them.</p>
       <h3>Online play (only if you use it)</h3>
       <ul>
         <li><strong>A game stores:</strong> the moves, each player's avatar (one of 12 animals), the latest emoji reaction (one of six from a list, never typed text), the clock times, and a random player number the app makes for this device. It isn't linked to any name, email or account.</li>
@@ -370,7 +386,8 @@
     <div class="overlay-backdrop" data-close></div>
     <div class="overlay-card tip-card">
       <button type="button" class="overlay-close" data-close aria-label="Close">✕</button>
-      <p class="tip-kicker">Tip card</p>
+      <div class="tip-coach"><span id="tip-coach" class="coach-avatar small" aria-hidden="true"></span><p class="tip-kicker"><span>Coach Knightly</span> <span id="tip-coach-line">Here's my tip:</span></p></div>
+      <p class="tip-kicker tip-plain">Tip card</p>
       <h2 id="tip-title"></h2>
       <div id="tip-body" class="tip-body"></div>
       <div class="result-actions"><button type="button" class="primary" data-close>Let's go</button></div>
@@ -447,6 +464,12 @@
         <li>Tap <strong>Add</strong>. Chess Quest now opens from your home screen and works offline.</li>
       </ol>
     </div>
+  </div>
+
+  <div id="badge-banner" class="badge-banner" role="status" aria-live="polite" hidden>
+    <span id="badge-banner-coach" class="coach-avatar small" aria-hidden="true"></span>
+    <button type="button" id="badge-banner-body" class="badge-banner-body"></button>
+    <button type="button" id="badge-banner-close" class="badge-banner-close" aria-label="Dismiss">✕</button>
   </div>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>

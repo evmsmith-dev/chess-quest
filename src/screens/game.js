@@ -11,6 +11,7 @@ import { play } from "../ui/audio.js";
 import { buzz } from "../ui/haptics.js";
 import { startReview } from "./review.js";
 import { setting } from "../lib/settings.js";
+import { bump } from "../lib/achievements.js";
 
 const byId = (id) => document.getElementById(id);
 const BOT = {
@@ -353,6 +354,7 @@ function finishIfOver(forced) {
 /** The result of a two-player game. */
 function friendResult(outcome) {
   hooks.onFinish("friend");
+  bump("friendGames");
   setTimeout(() => {
     if (!g || g.over !== outcome) return;
     const draw = outcome.result === "draw";

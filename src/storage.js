@@ -25,6 +25,7 @@ export function writeJson(key, value) {
     else {
       localStorage.setItem(PREFIX + key, JSON.stringify(value));
       if (PROGRESS.has(key)) keepData();
+      if (BADGE_SOURCES.has(key)) dispatchEvent(new Event("chessquest:progress"));
     }
   } catch {
     // Storage full or blocked: the game still works, it just isn't saved.
@@ -33,6 +34,8 @@ export function writeJson(key, value) {
 
 // Progress worth protecting: saving any of these asks the browser to keep the app's data.
 const PROGRESS = new Set(["lessons", "puzzles", "puzzlesClean", "stats", "daily", "drillBest"]);
+// Saving any of these may earn a badge: the app listens for "chessquest:progress" and checks.
+const BADGE_SOURCES = new Set(["lessons", "puzzles", "puzzlesClean", "daily", "drillBest", "games", "bosses", "milestones", "friendRecords"]);
 const ASK_AGAIN_MS = 24 * 60 * 60 * 1000;
 let askedThisVisit = false;
 

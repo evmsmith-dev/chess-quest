@@ -2,6 +2,7 @@
 // players in a two-player game) and shows the few moments that mattered most. At each one you
 // can see what was played, try to find a better move yourself (with instant feedback), or be
 // shown it. It opens on top of the finished game; Back returns to it.
+import { bump } from "../lib/achievements.js";
 import { Chess, targetsFor, animationFor, checkSquare, explainIllegal, piecesFromFen } from "../chess/rules.js";
 import { scorePositions } from "../chess/bot.js";
 import { reviewPositions, classify, pickMoments, judgeTry, REVIEW_SEARCH } from "../lib/review.js";
@@ -27,6 +28,7 @@ let R = null;
  * onExit runs when the player leaves (to restore the game screen).
  */
 export function startReview({ moves, colors, nameOf, opponentOf, title = "Game review", sub = "", orientation = "w", onExit }) {
+  bump("reviews");
   R = { moves, colors, nameOf, opponentOf, moments: null, index: 0, trying: false, token: 0 };
   const mine = R;
   openScreen("play", { onLeave: () => { if (R === mine) R = null; onExit?.(); } });
