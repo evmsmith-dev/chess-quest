@@ -212,3 +212,20 @@ test("finishing Win material now points to Pins & skewers", async ({ page }) => 
   await solveLine(page, "material", n - 1);
   await expect(page.locator("#result-primary")).toHaveText("Try Pins & skewers ➜");
 });
+
+test("a wrong move says what to look for in that set", async ({ page }) => {
+  await openApp(page, { storage: { puzzles: {} } });
+  await openChallenges(page);
+  await page.locator('[data-set="mate3"]').click();
+  let miss = wrongMove("mate3", 0);
+  await tapMove(page, miss.slice(0, 2), miss.slice(2, 4));
+  await expect(page.locator("#message")).toContainText("doesn't force checkmate in 3");
+  await page.clock.runFor(1200);
+  await page.goBack();
+  await page.locator('[data-set="defend"]').click();
+  miss = wrongMove("defend", 0);
+  const accepted = PUZZLES.defend[0].accept?.[0] || [];
+  if (accepted.includes(miss)) miss = new Chess(PUZZLES.defend[0].fen).moves({ verbose: true }).map((m) => m.from + m.to).find((u) => !accepted.includes(u) && u !== PUZZLES.defend[0].line[0]);
+  await tapMove(page, miss.slice(0, 2), miss.slice(2, 4));
+  await expect(page.locator("#message")).toContainText("doesn't stop your opponent's threat");
+});

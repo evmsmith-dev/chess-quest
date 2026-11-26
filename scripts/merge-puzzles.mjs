@@ -37,6 +37,48 @@ function problem(kind, p) {
   return null;
 }
 
+// The puzzle must really be the tactic its set names: for a pin or skewer, the winning capture is
+// on the lined-up pieces (or takes back on the pinner's square); for a discovered attack, the
+// uncovered piece gives check, forces the attacked piece to move, or makes the winning capture.
+const FILES = "abcdefgh";
+const at = (f, r) => FILES[f] + (r + 1);
+const DIRS = { r: [[1, 0], [-1, 0], [0, 1], [0, -1]], b: [[1, 1], [1, -1], [-1, 1], [-1, -1]] };
+DIRS.q = [...DIRS.r, ...DIRS.b];
+const WORTH = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 100 };
+function along(game, from, [df, dr], count = 2) {
+  let f = FILES.indexOf(from[0]), r = Number(from[1]) - 1;
+  const out = [];
+  for (;;) {
+    f += df; r += dr;
+    if (f < 0 || f > 7 || r < 0 || r > 7) return out;
+    const piece = game.get(at(f, r));
+    if (piece) out.push({ square: at(f, r), piece });
+    if (out.length === count) return out;
+  }
+}
+function isTheTactic(kind, p) {
+  if (kind !== "pin" && kind !== "discovered") return true;
+  const game = new Chess(p.fen);
+  const me = game.turn();
+  const [m1, reply, m2] = p.line;
+  const move = game.move({ from: m1.slice(0, 2), to: m1.slice(2, 4), promotion: m1[4] });
+  if (kind === "pin") {
+    const lines = (DIRS[move.piece] || []).map((d) => along(game, move.to, d))
+      .filter((l) => l.length === 2 && l.every((x) => x.piece.color !== me && WORTH[x.piece.type] >= 3));
+    if (!lines.length) return false;
+    const targets = new Set(lines.flatMap((l) => l.map((x) => x.square)));
+    return targets.has(m2.slice(2, 4)) || m2.slice(0, 2) === move.to || m2.slice(2, 4) === move.to;
+  }
+  for (const d of DIRS.q) {
+    const back = along(game, move.from, [-d[0], -d[1]], 1)[0];
+    if (!back || back.piece.color !== me || !(DIRS[back.piece.type] || []).some((x) => x[0] === d[0] && x[1] === d[1])) continue;
+    const front = along(game, move.from, d, 1)[0];
+    if (!front || front.piece.color === me || WORTH[front.piece.type] < 3) continue;
+    if (front.piece.type === "k" || reply.slice(0, 2) === front.square || m2.slice(0, 2) === back.square || m2.slice(2, 4) === front.square) return true;
+  }
+  return false;
+}
+
 const pieceCount = (fen) => fen.split(" ")[0].replace(/[^a-zA-Z]/g, "").length;
 for (const kind of NEW) {
   const candidates = [];
@@ -48,7 +90,7 @@ for (const kind of NEW) {
   let dropped = 0;
   for (const p of candidates) {
     if (kept.length >= MAX || seen.has(key(p))) continue;
-    const why = problem(kind, p);
+    const why = !isTheTactic(kind, p) ? `not really a ${kind === "pin" ? "pin or skewer" : "discovered attack"}` : problem(kind, p);
     if (why) { dropped++; console.log(`  dropped ${kind}: ${why}`); continue; }
     seen.add(key(p));
     kept.push(p);

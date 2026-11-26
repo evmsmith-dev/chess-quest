@@ -25,16 +25,19 @@ const OUT = process.argv[4] ? new URL(process.argv[4], `file://${process.cwd()}/
 const TARGET = { pin: 30, discovered: 30, mate3: 30, defend: 30 };
 const data = JSON.parse(await readFile(FILE, "utf8"));
 for (const k of ALL_NEW) data[k] ||= [];
-// Resume: an output file from an earlier (stopped) run supplies what it already found.
+// With an output file, the chosen kinds start from that file (to resume a stopped run), not from
+// data/puzzles.json; positions already used anywhere are still skipped.
+const seenFromFile = Object.values(data).flat().map((p) => p.fen.split(" ").slice(0, 2).join(" "));
 if (OUT !== FILE) {
+  for (const k of NEW_KINDS) data[k] = [];
   try {
     const earlier = JSON.parse(await readFile(OUT, "utf8"));
-    for (const k of NEW_KINDS) if (earlier[k]?.length > data[k].length) data[k] = earlier[k];
+    for (const k of NEW_KINDS) data[k] = earlier[k] || [];
   } catch {
     // Nothing yet.
   }
 }
-const seen = new Set(Object.values(data).flat().map((p) => p.fen.split(" ").slice(0, 2).join(" ")));
+const seen = new Set([...seenFromFile, ...Object.values(data).flat().map((p) => p.fen.split(" ").slice(0, 2).join(" "))]);
 const need = (kind) => NEW_KINDS.includes(kind) && data[kind].length < TARGET[kind];
 const searcher = new Searcher();
 

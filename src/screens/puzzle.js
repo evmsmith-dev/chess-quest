@@ -255,6 +255,23 @@ function hint() {
   }
 }
 
+/** What to look for, after a wrong move: depends on the set and on how far into the line it is. */
+function wrongTip() {
+  const left = Math.ceil((P.puzzle.line.length - P.step) / 2); // the player's moves still to come
+  if (["mate1", "mate2", "mate3"].includes(P.kind)) {
+    return left === 1 ? "That isn't checkmate." : `That doesn't force checkmate in ${left}.`;
+  }
+  if (P.step > 0) return "Now take what you've won.";
+  return {
+    hanging: "Look for a piece you can take for free.",
+    fork: "Look for a move that attacks two pieces at once.",
+    material: "Look for a move that wins material.",
+    pin: "Look for a bishop, rook or queen move that lines up two enemy pieces.",
+    discovered: "Which of your pieces is standing in front of your own bishop, rook or queen?",
+    defend: "That doesn't stop your opponent's threat. What do they want to play next?",
+  }[P.kind] || "";
+}
+
 const mode = {
   getTargets(from) { return !P || P.locked ? [] : targetsFor(P.game, from); },
   async onMove(from, to) {
@@ -278,7 +295,7 @@ const mode = {
       play("wrong");
       buzz("wrong");
       board.shake();
-      setMessage(`❌ ${move.san} isn't the best move here. Try again!`, "bad");
+      setMessage(`❌ ${move.san} isn't it. ${wrongTip()} Try again!`, "bad");
       const token = P.token;
       setTimeout(() => {
         if (!P || P.token !== token) return;
