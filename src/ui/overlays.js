@@ -121,17 +121,26 @@ export function initOverlays() {
   // Pointer events cover touch, mouse and pen in today's browsers; touch and mouse events are
   // listened to as well, so a browser that only sends those still counts the press.
   let pressedOn = null;
+  let touchedOn = null; // where the current touch started
   for (const type of ["pointerdown", "touchstart", "mousedown"]) {
-    document.addEventListener(type, (event) => { pressedOn = event.target; }, { capture: true, passive: true });
+    document.addEventListener(type, (event) => {
+      pressedOn = event.target;
+      if (type === "touchstart") touchedOn = event.target;
+    }, { capture: true, passive: true });
   }
   // A tap on the dimmed background closes the pop-up straight from the touch, because some
   // browsers (Safari on iPhone and iPad among them) don't always turn a tap on a plain area into a
-  // click. A touch's events all belong to the element where it started, so the tap that opened the
-  // pop-up (which started on the board) never counts. preventDefault stops the click that might
-  // follow, which would otherwise close a second pop-up.
+  // click. Only a touch that started on the backdrop counts, so the tap that opened the pop-up
+  // (which started on the board or a button) never closes it. preventDefault stops the click
+  // that might follow, which would otherwise close a second pop-up.
   document.addEventListener("touchend", (event) => {
     const backdrop = event.target.closest?.(".overlay-backdrop[data-close]");
-    if (!backdrop || !overlays.length || event.changedTouches.length !== 1 || event.touches.length) return;
+    const started = touchedOn;
+    touchedOn = null;
+    // The touch must have started on this backdrop too: some browsers report a touch's end on
+    // whatever is under the finger, which is the new pop-up's backdrop right after opening it.
+    if (!backdrop || !started || !backdrop.contains(started)) return;
+    if (!overlays.length || event.changedTouches.length !== 1 || event.touches.length) return;
     event.preventDefault();
     pressedOn = null;
     closeTop();
