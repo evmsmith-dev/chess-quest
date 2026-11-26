@@ -4,11 +4,28 @@ import { readFile } from "node:fs/promises";
 import { Chess } from "chess.js";
 import { UNITS } from "../src/content/lessons.js";
 import { RULES } from "../src/content/rules.js";
+import { BOSSES } from "../src/content/bosses.js";
 import { starPar, solutions, taskStartFen, judgePuzzleMove, parseUci } from "../src/lib/tasks.js";
 
 const problems = [];
 const fail = (where, message) => problems.push(`${where}: ${message}`);
 const ids = new Set();
+
+for (const boss of BOSSES) {
+  const where = `boss ${boss.id}`;
+  if (ids.has(boss.id)) fail(where, "duplicate id");
+  ids.add(boss.id);
+  try {
+    const game = new Chess(boss.fen);
+    if (game.isGameOver()) fail(where, "game already over");
+    if (!["mate", "promote"].includes(boss.goal)) fail(where, `unknown goal ${boss.goal}`);
+    if (!(boss.par > 0 && boss.moves >= boss.par)) fail(where, "par must be within the move limit");
+    if (boss.goal === "promote" && !game.board().flat().some((p) => p && p.type === "p" && p.color === game.turn())) fail(where, "nothing to promote");
+    if (!boss.tip?.length) fail(where, "needs a tip");
+  } catch (error) {
+    fail(where, error.message);
+  }
+}
 
 for (const unit of UNITS) {
   for (const lesson of unit.lessons) {
@@ -40,6 +57,11 @@ for (const unit of UNITS) {
         } else if (task.type === "play") {
           const game = new Chess(task.fen);
           if (game.isGameOver()) fail(where, "game already over");
+          if (!["mate", "promote", "hold"].includes(task.goal)) fail(where, `unknown play goal ${task.goal}`);
+          if (!(task.moves > 0)) fail(where, "needs a move limit");
+          const pawns = (c) => game.board().flat().filter((p) => p && p.type === "p" && p.color === c).length;
+          if (task.goal === "promote" && !pawns(game.turn())) fail(where, "nothing to promote");
+          if (task.goal === "hold" && !pawns(game.turn() === "w" ? "b" : "w")) fail(where, "no pawn to stop");
         } else fail(where, `unknown type ${task.type}`);
       } catch (error) {
         fail(where, error.message);
@@ -81,4 +103,4 @@ if (problems.length) {
   console.error(problems.join("\n"));
   process.exit(1);
 }
-console.log(`Content OK: ${ids.size} lessons, ${RULES.length} rules, ${count} puzzles.`);
+console.log(`Content OK: ${ids.size - BOSSES.length} lessons, ${BOSSES.length} endgame bosses, ${RULES.length} rules, ${count} puzzles.`);
