@@ -204,6 +204,11 @@ test("friends: save a friend, then challenge them from Play online", async ({ co
   // Shared storage again: the host's "current online game" would look like the guest's own.
   await guest.evaluate(() => localStorage.removeItem("chessQuest_onlineGame"));
   await guest.reload();
+  // Opening the app pops the challenge up; "Not now" leaves it on Home's card.
+  await expect(guest.locator("#challenge-overlay")).toBeVisible();
+  await expect(guest.locator("#challenge-text")).toContainText("challenged you to a game!");
+  await guest.locator("#challenge-overlay").getByRole("button", { name: "Not now" }).click();
+  await expect(guest.locator("#challenge-overlay")).toBeHidden();
   await expect(guest.locator("#invite-card")).toBeVisible();
   await expect(guest.locator("#invite-text")).toContainText("challenged you to a game!");
   await guest.locator("#invite-join").click();
@@ -539,4 +544,122 @@ test("when the opponent saves you as a friend, you're asked to add them back", a
   await host.locator("#friend-name").fill("Sam");
   await host.locator("#save-friend").click();
   await expect(host.locator("#message")).not.toContainText("saved you as a friend");
+});
+
+// Each tab's anonymous player number, fixed so saved friends can name it.
+async function asPlayer(page, uid) {
+  await page.addInitScript((uid) => sessionStorage.setItem("chessQuest_localUid", uid), uid);
+}
+const PAIR_A = "ABCDEFGHJKMNPQRS";
+const PAIR_B = "BCDEFGHJKMNPQRST";
+const savedFriends = (page) => page.evaluate(() => JSON.parse(localStorage.getItem("chessQuest_friends") || "[]"));
+const gameLink = (page, code) => page.evaluate((code) => JSON.parse(localStorage.getItem("chessQuest_localServer"))[code].friendPair, code);
+
+test("friends saved from different games end up on one link, so challenges arrive", async ({ context }) => {
+  const host = await context.newPage();
+  const guest = await context.newPage();
+  await asPlayer(host, "local-host");
+  await asPlayer(guest, "local-guest");
+  // The guest saved the host earlier, from another game, on its own link B.
+  const storage = { friends: [{ id: PAIR_B, name: "Alex", avatar: 1, added: 1, uid: "local-host" }] };
+  await openApp(host, { storage, clock: false });
+  await openApp(guest, { clock: false });
+  const code = await createGame(host, "w");
+  await joinGame(guest, code);
+  // The guest's device shares its link with this game.
+  await expect.poll(() => gameLink(host, code)).toBe(PAIR_B);
+  // A challenge on that link reaches the guest, wherever they are: a pop-up on Home.
+  await host.evaluate(() => localStorage.setItem("chessQuest_friends", JSON.stringify([{ id: "BCDEFGHJKMNPQRST", name: "Sam", avatar: 1, added: 1, uid: "local-guest" }])));
+  await guest.goBack();
+  await guest.evaluate(() => localStorage.removeItem("chessQuest_onlineGame"));
+  await host.goBack();
+  await host.locator("#online-btn").click();
+  await host.locator("[data-challenge]").click();
+  await expect(host.locator("#message")).toContainText("Waiting for Sam");
+  // (Shared storage: the host's "current online game" would look like the guest's own.)
+  await guest.evaluate(() => localStorage.removeItem("chessQuest_onlineGame"));
+  await guest.reload();
+  await expect(guest.locator("#challenge-overlay")).toBeVisible();
+  await guest.locator("#challenge-join").click();
+  await expect(guest.locator("#play-title")).toHaveText("Online game");
+  await expect(host.locator("#message")).toContainText("Your move");
+});
+
+test("a game already carrying another link moves the saved friend onto it", async ({ context }) => {
+  const host = await context.newPage();
+  const guest = await context.newPage();
+  await asPlayer(host, "local-host");
+  await asPlayer(guest, "local-guest");
+  await openApp(host, { clock: false });
+  await openApp(guest, { clock: false });
+  const code = await createGame(host, "w");
+  await joinGame(guest, code);
+  await guest.locator("#controls").getByRole("button", { name: /Resign/ }).click();
+  await guest.locator("#confirm-ok").click();
+  await host.locator("#result-overlay .overlay-close").click();
+  await guest.locator("#result-overlay .overlay-close").click();
+  // The host saves the guest in this game, so the game gets the host's link…
+  await host.locator("#ctl-friend").click();
+  await host.locator("#friend-name").fill("Sam");
+  await host.locator("#save-friend").click();
+  await expect.poll(() => gameLink(host, code)).toMatch(/^[A-Z2-9]{16}$/);
+  const link = await gameLink(host, code);
+  // …but the guest's device had saved the host from an older game, on link B, with a record.
+  await guest.evaluate(({ id }) => {
+    localStorage.setItem("chessQuest_friends", JSON.stringify([{ id, name: "Alex", avatar: 1, added: 1, uid: "local-host" }]));
+    localStorage.setItem("chessQuest_friendRecords", JSON.stringify({ [id]: { w: 2, l: 1, d: 0, codes: [] } }));
+  }, { id: PAIR_B });
+  // The next change to the game (here an emoji) makes the guest's device switch to the game's link.
+  await host.locator("#ctl-react").click();
+  await host.locator('[data-react="0"]').click();
+  await expect(guest.locator("#toast")).toContainText("Friend link with Alex updated");
+  expect(await savedFriends(guest)).toEqual([expect.objectContaining({ id: link, name: "Alex", uid: "local-host" })]);
+  const records = await guest.evaluate(() => JSON.parse(localStorage.getItem("chessQuest_friendRecords")));
+  expect(records[link]).toMatchObject({ w: 2, l: 1 });
+  expect(records[PAIR_B]).toBeUndefined();
+});
+
+test("Add friend can link the opponent to a friend saved before", async ({ context }) => {
+  const host = await context.newPage();
+  const guest = await context.newPage();
+  await asPlayer(host, "local-host");
+  await asPlayer(guest, "local-guest");
+  // An older entry, from before friends remembered player numbers.
+  const storage = { friends: [{ id: PAIR_B, name: "Micah", avatar: 3, added: 1 }] };
+  await openApp(host, { storage, clock: false });
+  await openApp(guest, { clock: false });
+  const code = await createGame(host, "w");
+  await joinGame(guest, code);
+  await guest.locator("#controls").getByRole("button", { name: /Resign/ }).click();
+  await guest.locator("#confirm-ok").click();
+  await host.locator("#result-overlay .overlay-close").click();
+  await host.locator("#ctl-friend").click();
+  await expect(host.locator("#existing-friends")).toBeVisible();
+  await host.getByRole("button", { name: /This is Micah/ }).click();
+  await expect(host.locator("#addfriend-overlay")).toBeHidden();
+  await expect(host.locator("#toast")).toContainText("Micah is linked");
+  const link = await gameLink(host, code);
+  expect(await savedFriends(host)).toEqual([expect.objectContaining({ id: link, name: "Micah", uid: "local-guest" })]);
+  await expect(host.locator("#ctl-friend")).toHaveCount(0);
+});
+
+test("a challenge during a game shows as a banner, and tapping it opens the challenge", async ({ context }) => {
+  const host = await context.newPage();
+  await openApp(host, { clock: false, storage: { friends: [{ id: PAIR_A, name: "Sam", avatar: 2, added: 1 }] } });
+  await host.locator("#new-game-btn").click();
+  await host.locator("#start-game-btn").click();
+  await expect(host.locator("#play")).toBeVisible();
+  // Another device sends the challenge (straight onto the stand-in server's channel).
+  const other = await context.newPage();
+  await openApp(other, { clock: false });
+  await other.evaluate((id) => {
+    const at = Date.now();
+    new BroadcastChannel("chess-quest-online").postMessage({ code: `pair:${id}`, game: { expires: at + 1e9, invite: { code: "ABCDEF", by: "local-other", at } } });
+  }, PAIR_A);
+  await expect(host.locator("#badge-banner")).toBeVisible();
+  await expect(host.locator("#badge-banner-body")).toContainText("Sam challenged you!");
+  await expect(host.locator("#challenge-overlay")).toBeHidden();
+  await host.locator("#badge-banner-body").click();
+  await expect(host.locator("#challenge-overlay")).toBeVisible();
+  await expect(host.locator("#home")).toBeVisible();
 });

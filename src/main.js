@@ -1,6 +1,6 @@
 // Chess Quest: Home, the Learn path, Challenges, the Rulebook, settings and new games.
 // The board screen's three modes live in src/screens/ (game.js, lesson.js, puzzle.js).
-import { initOverlays, openOverlay, openScreen, onScreenShown, closeTopThen, currentScreen } from "./ui/overlays.js";
+import { initOverlays, openOverlay, openScreen, onScreenShown, closeTopThen, currentScreen, backToHome } from "./ui/overlays.js";
 import { BADGES, BADGE_GROUPS, checkBadges, earnedBadges, best } from "./lib/achievements.js";
 import { coachSvg, coachLine } from "./ui/coach.js";
 import { registerServiceWorker } from "./ui/update.js";
@@ -360,6 +360,7 @@ byId("friend-list").addEventListener("click", async (e) => {
     const color = onlineColor === "random" ? (Math.random() < 0.5 ? "w" : "b") : onlineColor;
     const code = await withTimeout(backend.create({ color, avatar: onlineAvatar, minutes: onlineMinutes }), TIMEOUT_MS);
     if (!(await withTimeout(backend.invite(friend.id, code), TIMEOUT_MS))) throw new Error("invite");
+    backend.setFriendPair(code, friend.id); // the game carries the link, so both devices can line up on it
     closeTopThen(() => openOnlineGame(code, color, { friendName: friend.name, inviteId: friend.id }));
   } catch (error) {
     onlineError(errorText(error));
@@ -435,8 +436,9 @@ function renderInvite() {
   if (!inv) return;
   byId("invite-avatar").textContent = AVATARS[inv.friend.avatar] || "🙂";
   byId("invite-text").textContent = `${inv.friend.name} challenged you to a game!`;
-  if (byId("invite-card").dataset.code !== inv.code) alertPlayer("A friend challenged you");
+  if (byId("invite-card").dataset.code !== inv.code) alertPlayer("A friend challenged you", `${inv.friend.name} wants to play. Tap to open Chess Quest.`);
   byId("invite-card").dataset.code = inv.code;
+  popInvite(inv);
 }
 
 function dismissInvite(code) {
@@ -444,11 +446,12 @@ function dismissInvite(code) {
   renderInvite();
 }
 
-byId("invite-join").addEventListener("click", async () => {
+/** Joins the friend's challenge that's showing. `button` is disabled while it connects. */
+async function joinInvite(button) {
   const inv = currentInvite();
-  if (!inv) return;
+  if (!inv) { toast("That challenge isn't available any more."); return; }
   if (isOffline()) { toast(OFFLINE_ERROR); return; }
-  byId("invite-join").disabled = true;
+  if (button) button.disabled = true;
   try {
     const { color } = await withTimeout(inviteBackend.join(inv.code, onlineAvatar), TIMEOUT_MS);
     inviteBackend.clearInvite(inv.id);
@@ -459,9 +462,38 @@ byId("invite-join").addEventListener("click", async () => {
     dismissInvite(inv.code);
     toast("That challenge isn't available any more.");
   } finally {
-    byId("invite-join").disabled = false;
+    if (button) button.disabled = false;
   }
-});
+}
+byId("invite-join").addEventListener("click", () => joinInvite(byId("invite-join")));
+byId("challenge-join").addEventListener("click", () => closeTopThen(() => joinInvite(null)));
+
+// A new challenge pops up wherever the player is (once per challenge), not only on Home's card.
+// During a game it's a banner instead, so the game isn't covered.
+const poppedInvites = new Set();
+function popInvite(inv) {
+  if (poppedInvites.has(inv.code)) return;
+  if (currentScreen() === "play") {
+    poppedInvites.add(inv.code);
+    pushBanner({
+      html: `<strong>${AVATARS[inv.friend.avatar] || "🙂"} ${escapeHtml(inv.friend.name)} challenged you!</strong><small>Tap to see the challenge.</small>`,
+      onTap: () => backToHome(() => showChallengePopup()),
+      ms: 20000,
+      coach: false,
+    });
+    return;
+  }
+  if (document.querySelector(".overlay:not([hidden])")) return; // don't stack pop-ups: try again soon
+  poppedInvites.add(inv.code);
+  showChallengePopup();
+}
+function showChallengePopup() {
+  const inv = currentInvite();
+  if (!inv || !byId("challenge-overlay").hidden) return;
+  byId("challenge-avatar").textContent = AVATARS[inv.friend.avatar] || "🙂";
+  byId("challenge-text").textContent = `${inv.friend.name} challenged you to a game!`;
+  openOverlay("challenge-overlay", { focus: "#challenge-join" });
+}
 byId("invite-later").addEventListener("click", () => {
   const code = byId("invite-card").dataset.code;
   if (code) dismissInvite(code);
@@ -677,33 +709,44 @@ addEventListener("chessquest:progress", () => {
   badgeTimer = setTimeout(runBadgeCheck, 600);
 });
 
+// The banner at the top: badges earned, and a friend's challenge during a game. Each entry:
+// { html, onTap, ms, coach }.
 const bannerQueue = [];
 let bannerHide = null;
+let bannerTap = null;
+function pushBanner(entry) {
+  bannerQueue.push(entry);
+  if (byId("badge-banner").hidden) nextBanner();
+}
 function showBadgeBanner(html) {
   if (!setting("badgePopups")) return; // still earned: they're on the badge wall
-  bannerQueue.push(html);
-  if (byId("badge-banner").hidden) nextBanner();
+  pushBanner({ html, onTap: openAchievements, ms: 6000, coach: true });
 }
 function nextBanner() {
   const banner = byId("badge-banner");
   clearTimeout(bannerHide);
-  const html = bannerQueue.shift();
-  if (!html) { banner.hidden = true; return; }
-  byId("badge-banner-body").innerHTML = html;
-  banner.classList.toggle("no-coach-banner", !setting("coach"));
+  const entry = bannerQueue.shift();
+  if (!entry) { banner.hidden = true; bannerTap = null; return; }
+  byId("badge-banner-body").innerHTML = entry.html;
+  bannerTap = entry.onTap;
+  banner.classList.toggle("no-coach-banner", !entry.coach || !setting("coach"));
   banner.hidden = false;
   play("correct");
-  bannerHide = setTimeout(nextBanner, 6000);
+  bannerHide = setTimeout(nextBanner, entry.ms);
 }
 byId("badge-banner-close").addEventListener("click", nextBanner);
 byId("badge-banner-body").addEventListener("click", () => {
-  bannerQueue.length = 0;
+  const tap = bannerTap;
   nextBanner();
+  tap?.();
+});
+function openAchievements() {
+  bannerQueue.splice(0, bannerQueue.length, ...bannerQueue.filter((e) => e.onTap !== openAchievements));
   if (currentScreen() === "achievements") return;
   // A pop-up (like "Lesson complete!") may be open: close it first, then show the badges.
   if (document.querySelector(".overlay:not([hidden])")) closeTopThen(() => openScreen("achievements"));
   else openScreen("achievements");
-});
+}
 
 function renderAchievements() {
   const earned = earnedBadges() || {};

@@ -413,6 +413,10 @@ html.no-coords .coord { display: none; }
 .bar-clock.is-low.is-running { background: var(--danger); }
 .invite-card { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; margin: 0 0 14px; padding: 12px 16px; border-radius: 18px; background: var(--card); border: 2px solid var(--primary); box-shadow: var(--shadow); }
 .invite-avatar { font-size: 2rem; line-height: 1; }
+.challenge-card { text-align: center; }
+.challenge-avatar { font-size: 3rem; line-height: 1; margin-bottom: 4px; }
+.existing-friend-list { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 10px; }
+.existing-friend-list button { min-height: 44px; }
 .invite-text { flex: 1 1 160px; margin: 0; font-weight: 600; line-height: 1.35; }
 .invite-actions { display: flex; align-items: center; gap: 4px; margin-left: auto; }
 .invite-actions .primary { border: 0; border-radius: 999px; padding: 8px 20px; min-height: 44px; font-weight: 700; }

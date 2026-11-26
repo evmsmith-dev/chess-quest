@@ -627,8 +627,10 @@ test("after a lesson quiz, a game's buttons sit side by side again (not stacked)
 
 test("the update banner shows on Home only, never over a lesson's buttons", async ({ page }) => {
   await openApp(page);
-  // Stand in for a waiting update: the banner as the app shows it on Home.
+  // Stand in for a waiting update: the banner as the app shows it on Home (unless a real update
+  // is already waiting: the service worker can find one while the test runs).
   await page.evaluate(() => {
+    if (document.getElementById("update-banner")) return;
     const banner = document.createElement("div");
     banner.id = "update-banner";
     banner.innerHTML = "<p>✨ A new version is ready.</p>";
