@@ -205,6 +205,8 @@
       <div class="toggles">
         <label class="toggle"><span>Sound effects</span><input type="checkbox" data-setting="sound"></label>
         <label class="toggle" id="vibration-toggle"><span>Vibration</span><input type="checkbox" data-setting="vibration"></label>
+        <label class="toggle"><span>Coach Knightly<small>The friendly coach on Tip Cards and badges. Off: plain tips, same badges</small></span><input type="checkbox" data-setting="coach"></label>
+        <label class="toggle"><span>Badge pop-ups<small>A banner when you earn a badge. Off: badges still appear in Achievements</small></span><input type="checkbox" data-setting="badgePopups"></label>
         <label class="toggle"><span>Emoji reactions<small>Online games: send and see a few friendly emoji. There’s no typing or chat</small></span><input type="checkbox" data-setting="reactions"></label>
         <label class="toggle"><span>“Your move” alerts<small>Online games: a chime and a badge when it’s your turn and the app is in the background</small></span><input type="checkbox" data-setting="turnAlerts"></label>
         <button type="button" id="notify-btn" class="install-setting-btn notify-btn" hidden>🔔 Also show a notification</button>
@@ -385,6 +387,7 @@
     <div class="overlay-card tip-card">
       <button type="button" class="overlay-close" data-close aria-label="Close">✕</button>
       <div class="tip-coach"><span id="tip-coach" class="coach-avatar small" aria-hidden="true"></span><p class="tip-kicker"><span>Coach Knightly</span> <span id="tip-coach-line">Here's my tip:</span></p></div>
+      <p class="tip-kicker tip-plain">Tip card</p>
       <h2 id="tip-title"></h2>
       <div id="tip-body" class="tip-body"></div>
       <div class="result-actions"><button type="button" class="primary" data-close>Let's go</button></div>

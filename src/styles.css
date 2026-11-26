@@ -503,6 +503,10 @@ html.no-coords .coord { display: none; }
 .menu-item small { display: block; font-weight: 400; color: var(--muted); font-size: 0.88rem; margin-top: 2px; }
 
 .tip-card .tip-kicker { margin: 0 0 2px; font-weight: 700; color: var(--primary); text-transform: uppercase; font-size: 0.8rem; letter-spacing: 0.06em; }
+.tip-card .tip-plain { display: none; }
+.no-coach .tip-coach { display: none; }
+.no-coach .tip-card .tip-plain { display: block; }
+.no-coach-banner #badge-banner-coach { display: none; }
 .tip-coach { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; padding-right: 44px; }
 .tip-coach .tip-kicker { display: flex; flex-direction: column; text-transform: none; letter-spacing: 0; font-size: 0.95rem; }
 .tip-coach .tip-kicker span:first-child { text-transform: uppercase; letter-spacing: 0.06em; font-size: 0.75rem; }
@@ -513,6 +517,9 @@ html.no-coords .coord { display: none; }
 .coach-avatar.small { width: 48px; height: 48px; }
 .coach-avatar svg { width: 100%; height: 100%; }
 .coach-row { display: flex; align-items: center; gap: 12px; margin: 4px 0 14px; }
+.coach-row.no-coach .coach-avatar { display: none; }
+.coach-row.no-coach .coach-bubble { box-shadow: none; background: none; padding: 0; }
+.coach-row.no-coach .coach-bubble::before { display: none; }
 .coach-bubble { position: relative; margin: 0; padding: 10px 14px; border-radius: 16px; background: var(--card); font-weight: 600; box-shadow: var(--shadow, 0 2px 8px rgb(0 0 0 / 0.08)); }
 .coach-bubble::before { content: ""; position: absolute; left: -7px; top: 50%; transform: translateY(-50%) rotate(45deg); width: 14px; height: 14px; background: var(--card); }
 
@@ -529,7 +536,7 @@ html.no-coords .coord { display: none; }
 .badge.is-earned { outline: 2px solid color-mix(in srgb, var(--accent) 70%, transparent); }
 
 /* A badge was just earned */
-.badge-banner { position: fixed; z-index: 70; left: 50%; top: calc(10px + env(safe-area-inset-top)); transform: translateX(-50%); width: min(94vw, 460px); display: flex; align-items: center; gap: 10px; padding: 8px 8px 8px 10px; border-radius: 18px; background: var(--card); color: var(--text); box-shadow: 0 10px 30px rgb(0 0 0 / 0.28); animation: badge-in 0.35s ease-out; }
+.badge-banner { position: fixed; z-index: 160; /* above pop-ups: badges are often earned as a lesson ends */ left: 50%; top: calc(10px + env(safe-area-inset-top)); transform: translateX(-50%); width: min(94vw, 460px); display: flex; align-items: center; gap: 10px; padding: 8px 8px 8px 10px; border-radius: 18px; background: var(--card); color: var(--text); box-shadow: 0 10px 30px rgb(0 0 0 / 0.28); animation: badge-in 0.35s ease-out; }
 .badge-banner-body { flex: 1; min-width: 0; border: 0; background: none; color: inherit; text-align: left; padding: 4px 0; font: inherit; }
 .badge-banner-body strong { display: block; }
 .badge-banner-close { flex: none; width: 40px; height: 40px; border: 0; border-radius: 12px; background: var(--bg); color: var(--text); font-size: 1rem; }

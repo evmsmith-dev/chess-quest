@@ -5,6 +5,7 @@ import { starTargets, starMove, starPar, judgeMove, taskStartFen, parseUci } fro
 import { ALL_LESSONS } from "../content/lessons.js";
 import { bossById, bossStars } from "../content/bosses.js";
 import { coachLine } from "../ui/coach.js";
+import { setting } from "../lib/settings.js";
 import { board, useMode, setTitle, setMessage, setControls, setBars, feelMove, choosePromotion, isPromotionMove, showResult, miniBoard, setTaskDots, hideBoard } from "./boardscreen.js";
 import { openOverlay, openScreen, currentScreen, backTo } from "../ui/overlays.js";
 import { readJson, writeJson } from "../storage.js";
@@ -84,6 +85,7 @@ export function showTip(then) {
   const lesson = L.lesson;
   byId("tip-title").textContent = lesson.title;
   byId("tip-coach-line").textContent = coachLine("tip");
+  byId("tip-overlay").classList.toggle("no-coach", !setting("coach"));
   byId("tip-body").innerHTML = lesson.tip.map((p) => `<p>${p}</p>`).join("") + (lesson.tipFen ? miniBoard(lesson.tipFen, lesson.tipHighlight || []) : "");
   openOverlay("tip-overlay", { onClose: () => then?.() });
 }

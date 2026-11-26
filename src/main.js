@@ -660,15 +660,17 @@ function runBadgeCheck() {
   const { fresh, first } = checkBadges(setSizes());
   if (first && fresh.length) {
     // Progress from before badges existed: one summary, not a flood.
-    showBadgeBanner(`<strong>🏅 You've already earned ${fresh.length} badge${fresh.length === 1 ? "" : "s"}!</strong><small>${coachLine("badge")} Tap to see them.</small>`);
+    showBadgeBanner(`<strong>🏅 You've already earned ${fresh.length} badge${fresh.length === 1 ? "" : "s"}!</strong><small>${cheer()}Tap to see them.</small>`);
   } else {
-    for (const badge of fresh) showBadgeBanner(`<strong>🏅 Badge earned: ${badge.emoji} ${badge.title}</strong><small>${coachLine("badge")} Tap to see all your badges.</small>`);
+    for (const badge of fresh) showBadgeBanner(`<strong>🏅 Badge earned: ${badge.emoji} ${badge.title}</strong><small>${cheer()}Tap to see all your badges.</small>`);
   }
   if (fresh.length) {
     if (currentScreen() === "home") renderHome();
     if (currentScreen() === "achievements") renderAchievements();
   }
 }
+/** The coach's cheer before the banner's instructions, or nothing with the coach turned off. */
+const cheer = () => (setting("coach") ? `${coachLine("badge")} ` : "");
 let badgeTimer = null;
 addEventListener("chessquest:progress", () => {
   clearTimeout(badgeTimer);
@@ -678,6 +680,7 @@ addEventListener("chessquest:progress", () => {
 const bannerQueue = [];
 let bannerHide = null;
 function showBadgeBanner(html) {
+  if (!setting("badgePopups")) return; // still earned: they're on the badge wall
   bannerQueue.push(html);
   if (byId("badge-banner").hidden) nextBanner();
 }
@@ -687,6 +690,7 @@ function nextBanner() {
   const html = bannerQueue.shift();
   if (!html) { banner.hidden = true; return; }
   byId("badge-banner-body").innerHTML = html;
+  banner.classList.toggle("no-coach-banner", !setting("coach"));
   banner.hidden = false;
   play("correct");
   bannerHide = setTimeout(nextBanner, 6000);
@@ -695,13 +699,17 @@ byId("badge-banner-close").addEventListener("click", nextBanner);
 byId("badge-banner-body").addEventListener("click", () => {
   bannerQueue.length = 0;
   nextBanner();
-  if (currentScreen() !== "achievements") openScreen("achievements");
+  if (currentScreen() === "achievements") return;
+  // A pop-up (like "Lesson complete!") may be open: close it first, then show the badges.
+  if (document.querySelector(".overlay:not([hidden])")) closeTopThen(() => openScreen("achievements"));
+  else openScreen("achievements");
 });
 
 function renderAchievements() {
   const earned = earnedBadges() || {};
   const count = BADGES.filter((b) => earned[b.id]).length;
-  byId("achievements-intro").textContent = count === 0
+  document.querySelector("#achievements .coach-row").classList.toggle("no-coach", !setting("coach"));
+  byId("achievements-intro").textContent = !setting("coach") ? `${count} of ${BADGES.length} badges earned.` : count === 0
     ? "Every badge here is a chess skill. Let's earn the first one together!"
     : count === BADGES.length
       ? "You've earned every badge. Bravo, champion!"
