@@ -124,6 +124,18 @@ export function initOverlays() {
   for (const type of ["pointerdown", "touchstart", "mousedown"]) {
     document.addEventListener(type, (event) => { pressedOn = event.target; }, { capture: true, passive: true });
   }
+  // A tap on the dimmed background closes the pop-up straight from the touch, because some
+  // browsers (Safari on iPhone and iPad among them) don't always turn a tap on a plain area into a
+  // click. A touch's events all belong to the element where it started, so the tap that opened the
+  // pop-up (which started on the board) never counts. preventDefault stops the click that might
+  // follow, which would otherwise close a second pop-up.
+  document.addEventListener("touchend", (event) => {
+    const backdrop = event.target.closest?.(".overlay-backdrop[data-close]");
+    if (!backdrop || !overlays.length || event.changedTouches.length !== 1 || event.touches.length) return;
+    event.preventDefault();
+    pressedOn = null;
+    closeTop();
+  }, { capture: true, passive: false });
   document.addEventListener("click", (event) => {
     const close = event.target.closest("[data-close]");
     const pressed = pressedOn;
