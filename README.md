@@ -2,14 +2,14 @@
 
 Learn chess, solve puzzles and play the computer, in an app you install on a phone, tablet or computer (PWA). It works offline. For all ages, from first moves to intermediate.
 
-- **🎓 Learn:** 30 short lessons in 8 units: *Meet the pieces*, *Winning pieces*, *Check and checkmate*, *Special moves*, *How games end*, *Winning plans*, *Opening basics* (center, development, castling, beginner traps) and *Checkmate patterns* (back-rank, smothered, queen kiss and ladder mates). Each lesson starts with a Tip Card, followed by a few tasks:
+- **🎓 Learn:** 38 short lessons in 10 units: *Meet the pieces*, *Winning pieces*, *Check and checkmate*, *Special moves*, *How games end*, *Winning plans*, *Opening basics* (center, development, castling, beginner traps), *Checkmate patterns* (back-rank, smothered, queen kiss and ladder mates), *More tactics* (pins, skewers, discovered attacks, removing the defender) and *Endgame basics* (the square rule, the opposition, king in front of the pawn, pawn breakthrough). Each lesson starts with a Tip Card, followed by a few tasks:
   - **Stars:** move one kind of piece to collect every ⭐, with the fewest moves possible shown.
   - **Find the move:** for example a mate in one, getting out of check three ways, castling or en passant.
   - **Quizzes:** short questions about the rules.
   - **Play-outs:** checkmate a lone king with a queen or a rook against the bot, within a set number of moves.
 
   Wrong moves get an explanation ("The pawn on d5 is protected by the pawn on e6…"). Lessons earn up to 3 stars, and every lesson is open, so experienced players can skip ahead.
-- **🎯 Challenges:** puzzles with one best answer, in five sets. Beginner sets are *Mate in 1* and *Free pieces*. Intermediate sets are *Mate in 2*, *Forks* and *Win material*. A hint first shows which piece to move, then where to move it.
+- **🎯 Challenges:** puzzles with one best answer, in nine sets. Beginner sets are *Mate in 1* and *Free pieces*. Intermediate sets are *Mate in 2*, *Forks*, *Win material*, *Pins & skewers*, *Discovered attacks*, *Mate in 3* and *Defend!* (find the only move that stops the opponent's threat). **Endgame bosses** are positions to win against the bot (queen, two rooks, rook, pawn race, breakthrough, king and pawn), with ⭐⭐⭐ for winning in few moves. A hint first shows which piece to move, then where to move it.
   - **Finishing a set** celebrates, shows how many were solved on the first try, and suggests the next set (Mate in 1 → Free pieces → Mate in 2 → Forks → Win material). A finished set's card shows ✓, or 👑 when every puzzle was solved on the first try, and opens **Retry missed**, **Practice** (shuffled) and **Speed drill**.
   - **⚡ Speed drill:** as many puzzles from one set as you can in 3 minutes, with 3 lives. A miss shows the answer. The best score per set is kept.
 - **🔥 Daily puzzle:** the same puzzle for everyone each day, with a streak. Every 7 days in a row earns a 🧊 freeze (up to 2), and a freeze saves the streak on a missed day. After solving, you see how many players solved it on the first try that day (two anonymous counts per day, when online play is set up).

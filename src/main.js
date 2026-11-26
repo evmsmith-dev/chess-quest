@@ -15,7 +15,8 @@ import { RULES } from "./content/rules.js";
 import { warmUp } from "./chess/bot.js";
 import { miniBoard } from "./screens/boardscreen.js";
 import { newGame, newFriendGame, resumeGame, savedGame, savedFriendGame, setGameHooks, setNewGameOpener } from "./screens/game.js";
-import { startLesson, lessonProgress, nextLesson, setLessonHooks } from "./screens/lesson.js";
+import { startLesson, lessonProgress, nextLesson, setLessonHooks, startBoss, bossProgress } from "./screens/lesson.js";
+import { BOSSES } from "./content/bosses.js";
 import { openOnlineGame, savedOnlineGame, setOnlineHooks, friends, saveFriends, toast, friendRecords, forgetFriendRecord } from "./screens/online.js";
 import { getBackend, onlineConfigured } from "./online/backend.js";
 import { isOffline, onConnectionChange, withTimeout } from "./online/connection.js";
@@ -139,10 +140,25 @@ function renderChallenges() {
         <span class="progress-bar small" aria-hidden="true"><span style="width:${total ? (count / total) * 100 : 0}%"></span></span></span>
       <span class="set-count">${badge}${count}/${total}</span>
     </button>`;
-  }).join("")).join("");
+  }).join("")).join("") + renderBosses();
+}
+
+function renderBosses() {
+  const progress = bossProgress();
+  return `<h3 class="tier-title">Endgame bosses</h3>` + BOSSES.map((b) => {
+    const p = progress[b.id];
+    const stars = p?.stars || 0;
+    return `<button type="button" class="set-card${stars === 3 ? " is-complete" : ""}" data-boss="${b.id}">
+      <span class="set-emoji" aria-hidden="true">${b.emoji}</span>
+      <span class="set-text"><strong>${b.title}</strong><small>${b.text}${p ? ` · Best: ${p.best} moves` : ""}</small></span>
+      <span class="set-count" aria-label="${stars} of 3 stars">${"⭐".repeat(stars)}${"☆".repeat(3 - stars)}</span>
+    </button>`;
+  }).join("");
 }
 byId("set-list").addEventListener("click", (e) => {
   if (e.target.closest("#drill-btn")) { openDrillPicker(); return; }
+  const boss = e.target.closest("[data-boss]")?.dataset.boss;
+  if (boss) { startBoss(boss); return; }
   const id = e.target.closest("[data-set]")?.dataset.set;
   if (!id) return;
   if (setStatus(id).complete) openSetMenu(id);

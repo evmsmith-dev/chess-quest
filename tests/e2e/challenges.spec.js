@@ -2,7 +2,7 @@
 import { test, expect } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { Chess } from "chess.js";
-import { openApp, tapMove } from "./helpers.js";
+import { openApp, tapMove, pieceOn } from "./helpers.js";
 
 const PUZZLES = JSON.parse(readFileSync(new URL("../../data/puzzles.json", import.meta.url)));
 const range = (n) => Array.from({ length: n }, (_, i) => i);
@@ -173,4 +173,42 @@ test("no request when the browser already keeps the data", async ({ page }) => {
   await solve(page, "mate1", 0);
   await page.waitForTimeout(200);
   expect(await page.evaluate(() => window.__persistCalls)).toBe(0);
+});
+
+/** Plays a whole puzzle line (the player's moves; the app plays the replies). */
+async function solveLine(page, kind, index) {
+  const { line } = PUZZLES[kind][index];
+  for (let i = 0; i < line.length; i += 2) {
+    await tapMove(page, line[i].slice(0, 2), line[i].slice(2, 4));
+    if (i + 1 < line.length) {
+      const reply = line[i + 1];
+      await page.clock.runFor(1200);
+      await expect.poll(() => pieceOn(page, reply.slice(2, 4))).not.toBe(null);
+    }
+  }
+}
+
+test("the new sets: a mate in 3 played through, and a Defend! puzzle names the threat", async ({ page }) => {
+  await openApp(page, { storage: { puzzles: {} } });
+  await openChallenges(page);
+  for (const id of ["pin", "discovered", "mate3", "defend"]) await expect(page.locator(`[data-set="${id}"]`)).toBeEnabled();
+  await page.locator('[data-set="mate3"]').click();
+  await expect(page.locator("#message")).toContainText("Force checkmate in three moves");
+  await solveLine(page, "mate3", 0);
+  await expect(page.locator("#message")).toContainText("checkmate");
+  await page.goBack();
+  await page.locator('[data-set="defend"]').click();
+  const first = PUZZLES.defend[0];
+  await solveLine(page, "defend", 0);
+  await expect(page.locator("#message")).toContainText("It stopped the threat");
+  if (first.mate) await expect(page.locator("#message")).toContainText("(checkmate)");
+});
+
+test("finishing Win material now points to Pins & skewers", async ({ page }) => {
+  const n = PUZZLES.material.length;
+  await openApp(page, { storage: { puzzles: { material: range(n - 1) } } });
+  await openChallenges(page);
+  await page.locator('[data-set="material"]').click();
+  await solveLine(page, "material", n - 1);
+  await expect(page.locator("#result-primary")).toHaveText("Try Pins & skewers ➜");
 });

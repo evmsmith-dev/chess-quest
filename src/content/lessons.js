@@ -476,6 +476,131 @@ export const UNITS = [
       },
     ],
   },
+  {
+    id: "tactics",
+    title: "More tactics",
+    emoji: "⚔️",
+    lessons: [
+      {
+        id: "pins",
+        title: "Pins",
+        tip: [
+          "A pin is when a piece can't move without exposing something more valuable behind it. Bishops, rooks and queens make pins.",
+          "If the piece behind is the king, the pinned piece can't move at all: that would be illegal. Then attack the pinned piece, and it can't run away!",
+        ],
+        tipFen: "r3k3/ppp2ppp/2n5/1B6/3P4/8/PPP2PPP/4K2R w K - 0 1",
+        tipHighlight: ["b5", "c6", "e8"],
+        tasks: [
+          { type: "quiz", fen: "r3k3/ppp2ppp/2n5/1B6/3P4/8/PPP2PPP/4K2R b K - 0 1", highlight: ["b5", "c6", "e8"], text: "It's Black's move. Can the knight on c6 move?", options: ["No: it would leave the king in check", "Yes, anywhere it likes", "Only backward"], answer: 0, explain: "The bishop on b5 pins the knight to the king. Moving it would expose the king to check, which is never allowed." },
+          { type: "move", goal: "exact", fen: "r3k3/ppp2ppp/2n5/1B6/3P4/8/PPP2PPP/4K2R w K - 0 1", accept: ["d4d5"], text: "The knight is pinned. Attack it!", success: "d5! The pinned knight can't run away, so you'll win it.", wrong: { b5c6: "Taking it trades your bishop for the knight. Attack it with something cheaper, and it's simply lost." }, wrongDefault: "The knight can't move. Which pawn can attack it?" },
+          { type: "move", goal: "exact", fen: "6k1/6pp/8/3q4/8/1P6/4BPPP/6K1 w - - 0 1", accept: ["e2c4"], text: "Pin the queen to the king!", success: "Bc4 pins the queen. If she takes the bishop, your pawn takes her: a queen for a bishop!", wrongDefault: "Find a bishop move that puts the queen and king on one line, with the bishop protected." },
+        ],
+      },
+      {
+        id: "skewers",
+        title: "Skewers",
+        tip: [
+          "A skewer is a pin the other way round: the more valuable piece is in front. Attack it, and when it moves out of the way, take the piece behind.",
+          "Checking the king with a skewer is the strongest kind: the king must move, and the piece behind it falls.",
+        ],
+        tipFen: "6B1/8/4k3/8/8/1q6/8/6K1 b - - 0 1",
+        tipHighlight: ["g8", "e6", "b3"],
+        tasks: [
+          { type: "move", goal: "exact", fen: "8/7B/4k3/8/8/1q6/8/6K1 w - - 0 1", accept: ["h7g8"], text: "Skewer the king and queen with your bishop.", success: "Bg8+! The king has to step aside, and then the bishop takes the queen.", wrongDefault: "Look for a bishop check with the queen behind the king on the same line." },
+          { type: "move", goal: "exact", fen: "8/8/8/8/q3k3/8/8/6KR w - - 0 1", accept: ["h1h4"], text: "Skewer with your rook.", success: "Rh4+! The king must leave the row, and Rxa4 wins the queen.", wrongDefault: "The king and queen are on the same row. Check along it!" },
+          { type: "quiz", text: "What's the difference between a pin and a skewer?", options: ["In a pin the more valuable piece is behind; in a skewer it's in front", "Pins only use bishops, skewers only use rooks", "There's no difference"], answer: 0, explain: "Both line up two pieces. A pin freezes the front piece; a skewer forces the front piece to move and wins the one behind." },
+        ],
+      },
+      {
+        id: "discovered",
+        title: "Discovered attacks",
+        tip: [
+          "When a piece moves out of the way, it can uncover an attack from the piece behind it. That's a discovered attack.",
+          "It's deadly when the uncovered attack is a check, a discovered check: the moving piece is free to grab something while the opponent deals with the check.",
+        ],
+        tipFen: "4k3/1q6/8/8/4B3/8/8/4R1K1 w - - 0 1",
+        tipHighlight: ["e1", "e4", "e8"],
+        tasks: [
+          { type: "move", goal: "exact", fen: "4k3/1q6/8/8/4B3/8/8/4R1K1 w - - 0 1", accept: ["e4b7", "e4c6"], text: "Move the bishop to uncover check from your rook, and win the queen.", success: "Discovered check! Black must deal with the rook's check, and the queen is gone.", successFor: { e4c6: "Discovered check, and the bishop attacks the queen: next move it takes her. (Bxb7 took her right away.)" }, wrongDefault: "Any bishop move gives check from the rook. Which one also wins the queen?" },
+          { type: "move", goal: "exact", fen: "3q2k1/8/8/8/8/3B4/8/3R2K1 w - - 0 1", accept: ["d3c4"], text: "Your rook is aimed at the queen, but your bishop is in the way. Move it with check!", success: "Bc4+! The bishop checks the king and uncovers the rook's attack. Black must answer the check, and you take the queen.", wrong: { d3h7: "That's check too, and you'll win the queen, but the king takes your bishop first. Bc4+ keeps it." }, wrongDefault: "If the bishop moves without check, the queen just takes your rook. Find a bishop move that gives check." },
+          { type: "quiz", text: "A discovered check where both pieces give check at once is a double check. How can the king escape it?", options: ["Only by moving: you can't block or capture two checks at once", "By capturing either checking piece", "By blocking one of them"], answer: 0, explain: "Blocking or capturing only stops one of the two checks, so the king has to move. That makes double checks very powerful." },
+        ],
+      },
+      {
+        id: "remove-defender",
+        title: "Removing the defender",
+        tip: [
+          "Sometimes a piece is only safe because another piece guards it. Capture or chase away the guard, and the piece it was guarding falls.",
+          "Before taking, count: how many times is the target attacked, and how many times is it defended?",
+        ],
+        tasks: [
+          { type: "move", goal: "exact", fen: "6k1/pp3ppp/2n5/1B2n3/8/8/PP3PPP/4R1K1 w - - 0 1", accept: ["b5c6"], text: "The knight on e5 is guarded only by the knight on c6. Remove the guard!", success: "Bxc6! After bxc6, the e5 knight has no defender and your rook takes it.", wrong: { e1e5: "The c6 knight takes back. Remove that guard first." }, wrongDefault: "Which piece is guarding the e5 knight? Take it." },
+          { type: "quiz", text: "Your rook attacks a knight once, and it's defended once by a pawn. Should you take it?", options: ["No: you'd give a rook (5) for a knight (3)", "Yes, always take", "Only if it's checkmate"], answer: 0, explain: "The pawn takes back, and you've traded your rook for a knight. Count attackers and defenders, and the value of what you give." },
+        ],
+      },
+    ],
+  },
+  {
+    id: "endgames",
+    title: "Endgame basics",
+    emoji: "🏁",
+    lessons: [
+      {
+        id: "square-rule",
+        title: "The square rule",
+        tip: [
+          "Can a king catch a runaway pawn? Picture a square with one side from the pawn to the row where it promotes.",
+          "If the king can step into that square on its move, it catches the pawn. If not, the pawn wins the race.",
+        ],
+        tipFen: "8/8/8/5k2/1P6/8/8/6K1 b - - 0 1",
+        tipHighlight: ["b4", "b8", "f8", "f4"],
+        tasks: [
+          { type: "quiz", fen: "8/8/8/5k2/1P6/8/8/6K1 b - - 0 1", highlight: ["b4", "b8", "f8", "f4"], text: "Black to move. The pawn's square runs from b4 to f8. Can the black king catch the pawn?", options: ["Yes: the king is already in the square", "No: the pawn is too fast", "Only if White doesn't move"], answer: 0, explain: "The king on f5 is inside the square (b4 to f8), so it can always catch the pawn." },
+          { type: "play", goal: "hold", moves: 8, fen: "8/8/8/5k2/1P6/8/8/6K1 b - - 0 1", text: "Catch the pawn before it promotes.", success: "Caught it! The square rule works." },
+          { type: "play", goal: "promote", moves: 6, fen: "8/8/8/6k1/1P6/8/8/6K1 w - - 0 1", text: "Now you're White, and the black king is outside the square. Race to promote!", success: "Promoted! The king started outside the square, so it could never catch the pawn." },
+        ],
+      },
+      {
+        id: "opposition",
+        title: "The opposition",
+        tip: [
+          "When the two kings stand face to face with one square between them, the player who does NOT have to move has the opposition.",
+          "Kings can't step next to each other, so the king with the opposition can push the other king back, or hold it off.",
+        ],
+        tipFen: "4k3/8/4K3/4P3/8/8/8/8 b - - 0 1",
+        tipHighlight: ["e6", "e8"],
+        tasks: [
+          { type: "quiz", fen: "4k3/8/4K3/4P3/8/8/8/8 b - - 0 1", highlight: ["e6", "e8"], text: "Black to move. Who has the opposition?", options: ["White: Black has to move and give way", "Black", "Nobody"], answer: 0, explain: "The kings face each other with one square between, and Black must move. White has the opposition." },
+          { type: "play", goal: "promote", moves: 10, fen: "4k3/8/4K3/4P3/8/8/8/8 w - - 0 1", text: "Promote your pawn. Use your king to push the black king out of the way.", success: "Promoted! Your king cleared the path for the pawn." },
+          { type: "play", goal: "hold", moves: 12, fen: "4k3/8/8/4K3/4P3/8/8/8 b - - 0 1", text: "You're Black. Stop the pawn from promoting: take the opposition and keep your king in front of the pawn.", success: "Held! By keeping the opposition, you stopped the pawn. That's a draw." },
+        ],
+      },
+      {
+        id: "king-in-front",
+        title: "King in front of the pawn",
+        tip: [
+          "In a king and pawn ending, your king should walk in front of the pawn, not behind it. The king clears the way; the pawn follows.",
+          "A king on the 6th row in front of its pawn wins against a lone king, whoever moves first (except with a pawn on the edge of the board).",
+        ],
+        tasks: [
+          { type: "quiz", text: "You have a king and a pawn against a lone king. Where should your king go?", options: ["In front of the pawn, to clear the way", "Behind the pawn, to push it", "Far away, out of trouble"], answer: 0, explain: "The pawn can't push the enemy king aside, but your king can. Lead with the king." },
+          { type: "play", goal: "promote", moves: 10, fen: "3k4/8/3K4/3P4/8/8/8/8 w - - 0 1", text: "Your king is on the 6th row in front of the pawn. Promote it!", success: "Promoted! The king in front made it easy." },
+        ],
+      },
+      {
+        id: "breakthrough",
+        title: "Pawn breakthrough",
+        tip: [
+          "When pawns face pawns, a sacrifice can let one of them break through and run to promote.",
+          "With three pawns against three, pushing the middle pawn first is the famous trick.",
+        ],
+        tasks: [
+          { type: "move", goal: "exact", fen: "8/ppp5/8/PPP5/8/8/8/k6K w - - 0 1", accept: ["b5b6"], text: "The kings are far away. Find the move that breaks through!", success: "b6! Whichever pawn takes, one of yours runs through to promote.", wrongDefault: "Sacrifice the middle pawn: b6!" },
+          { type: "play", goal: "promote", moves: 8, fen: "8/ppp5/8/PPP5/8/8/8/k6K w - - 0 1", text: "Now play it out: break through and promote.", success: "Promoted! The breakthrough worked." },
+        ],
+      },
+    ],
+  },
 ];
 
 export const ALL_LESSONS = UNITS.flatMap((unit) => unit.lessons.map((lesson) => ({ ...lesson, unit })));

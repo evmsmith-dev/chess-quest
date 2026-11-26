@@ -43,9 +43,17 @@ export const SETS = [
   { id: "mate2", title: "Mate in 2", tier: "Intermediate", emoji: "♚", goal: "Force checkmate in two moves." },
   { id: "fork", title: "Forks", tier: "Intermediate", emoji: "🍴", goal: "Attack two pieces at once and win one." },
   { id: "material", title: "Win material", tier: "Intermediate", emoji: "💰", goal: "Find the move that wins material." },
+  { id: "pin", title: "Pins & skewers", tier: "Intermediate", emoji: "📌", goal: "Line up two enemy pieces with a pin or a skewer, and win one." },
+  { id: "discovered", title: "Discovered attacks", tier: "Intermediate", emoji: "🔦", goal: "Move one piece to uncover an attack from another, and win material." },
+  { id: "mate3", title: "Mate in 3", tier: "Intermediate", emoji: "3️⃣", goal: "Force checkmate in three moves." },
+  { id: "defend", title: "Defend!", tier: "Intermediate", emoji: "🛡️", goal: "Your opponent is threatening something. Find the only move that saves you." },
 ];
 export const DAILY_IDS = ["puzzle"];
 const DAILY_ROTATION = ["mate2", "fork", "hanging", "material", "mate1"];
+// From this day on the new sets join the rotation. A fixed date keeps every device (old version
+// or new) on the same daily puzzle until then.
+const ROTATION_2_FROM = "2026-12-01";
+const DAILY_ROTATION_2 = ["mate2", "fork", "hanging", "pin", "material", "defend", "mate1", "discovered", "mate3"];
 
 let puzzles = null;
 let P = null;
@@ -80,7 +88,7 @@ export function cleanPuzzles() {
 export const drillBests = () => readJson("drillBest", {});
 
 /** The set to suggest after finishing one: the learning path. */
-export const NEXT_SET = { mate1: "hanging", hanging: "mate2", mate2: "fork", fork: "material", material: null };
+export const NEXT_SET = { mate1: "hanging", hanging: "mate2", mate2: "fork", fork: "material", material: "pin", pin: "discovered", discovered: "mate3", mate3: "defend", defend: null };
 export const DRILL_MS = 3 * 60 * 1000;
 export const DRILL_LIVES = 3;
 
@@ -122,7 +130,8 @@ function startRound(kind, mode, order) {
 /** Today's puzzle: the same on every device. */
 export function dailyPuzzle(day = dateKey()) {
   const dayNumber = Math.round(new Date(`${day}T12:00:00`).getTime() / 86400000);
-  const kind = DAILY_ROTATION[((dayNumber % DAILY_ROTATION.length) + DAILY_ROTATION.length) % DAILY_ROTATION.length];
+  const rotation = day >= ROTATION_2_FROM ? DAILY_ROTATION_2 : DAILY_ROTATION;
+  const kind = rotation[((dayNumber % rotation.length) + rotation.length) % rotation.length];
   const list = puzzleList(kind).length ? puzzleList(kind) : puzzleList("mate1");
   if (!list.length) return null;
   const index = hashString(day) % list.length;
@@ -314,6 +323,21 @@ const mode = {
   leave() {},
 };
 
+/** For a Defend! puzzle: what the opponent was threatening, shown once it's solved. */
+function threatNote() {
+  const { puzzle } = P;
+  if (P.kind !== "defend" || !puzzle.threat) return "";
+  try {
+    const parts = puzzle.fen.split(" ");
+    parts[1] = parts[1] === "w" ? "b" : "w";
+    parts[3] = "-";
+    const san = new Chess(parts.join(" ")).move({ from: puzzle.threat.slice(0, 2), to: puzzle.threat.slice(2, 4), promotion: puzzle.threat[4] }).san;
+    return ` It stopped the threat ${san}${puzzle.mate ? " (checkmate)" : ""}.`;
+  } catch {
+    return "";
+  }
+}
+
 function solved(move) {
   P.locked = true;
   board.setMovable(null);
@@ -333,7 +357,7 @@ function solved(move) {
     writeJson("puzzlesClean", cleanAll);
   }
   if (P.round) { P.round.done++; if (clean) P.round.clean++; }
-  setMessage(`🎉 ${move.san}${P.game.isCheckmate() ? " is checkmate" : ""}! ${clean ? "Solved on the first try." : "Solved!"}`, "good");
+  setMessage(`🎉 ${move.san}${P.game.isCheckmate() ? " is checkmate" : ""}! ${clean ? "Solved on the first try." : "Solved!"}${threatNote()}`, "good");
   controls(true);
   if (P.daily) {
     const record = recordDaily(dailyRecord(), P.daily, "puzzle", { mistakes: P.mistakes, hints: P.hints });
