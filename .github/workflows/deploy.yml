@@ -25,13 +25,18 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npx playwright install --with-deps chromium
+      - run: npx playwright install --with-deps chromium webkit
       - name: Check lessons, rules and puzzles
         run: npm run validate
       - name: Unit tests
         run: npm run test:unit
       - name: Build and end-to-end tests
         run: npm run test:e2e
+        env:
+          WEBKIT: "1"
+      - name: Show the page at each failure
+        if: failure()
+        run: for f in test-results/*/error-context.md; do [ -f "$f" ] && { echo "::group::$f"; head -c 6000 "$f"; echo "::endgroup::"; }; done; true
       - name: Upload test report on failure
         if: failure()
         uses: actions/upload-artifact@v7

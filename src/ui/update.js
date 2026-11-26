@@ -54,8 +54,12 @@ export async function registerServiceWorker() {
     };
     document.addEventListener("visibilitychange", checkForUpdate);
     setInterval(checkForUpdate, CHECK_EVERY_MS);
-    // Offer a waiting update whenever Home comes back into view.
-    new MutationObserver(showBanner).observe(document.getElementById("home"), { attributes: true, attributeFilter: ["hidden"] });
+    // Offer a waiting update whenever Home comes back into view, and put it away when Home is left,
+    // so it never covers a game's or lesson's buttons.
+    new MutationObserver(() => {
+      if (document.getElementById("home").hidden) document.getElementById("update-banner")?.remove();
+      else showBanner();
+    }).observe(document.getElementById("home"), { attributes: true, attributeFilter: ["hidden"] });
   } catch {
     // No offline support here; the app still works online.
   }

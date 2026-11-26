@@ -26,3 +26,14 @@ test("tapping the promotion square on a touch screen keeps the promotion choice 
   await page.locator('[data-promo="q"]').tap();
   await expect(page.locator("#message")).toContainText("A new queen");
 });
+
+test("a tap outside a pop-up on top of another closes only the top one", async ({ page }, info) => {
+  test.skip(!info.project.use.hasTouch, "touch screens only");
+  await openApp(page);
+  await page.locator("#settings-btn").tap();
+  await page.locator("#privacy-btn").tap();
+  await expect(page.locator("#privacy-overlay")).toBeVisible();
+  await page.locator("#privacy-overlay .overlay-backdrop").tap({ position: { x: 8, y: 8 } });
+  await expect(page.locator("#privacy-overlay")).toBeHidden();
+  await expect(page.locator("#settings-overlay")).toBeVisible();
+});

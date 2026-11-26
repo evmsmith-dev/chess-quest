@@ -118,8 +118,33 @@ export function initOverlays() {
   // On a touch screen, the tap that opens a pop-up (a promotion, say) ends on the pop-up's own
   // backdrop, and the browser sends it there as a click. So a backdrop or ✕ only closes the pop-up
   // when the press also started on it. (Keyboard "clicks" have no press and always count.)
+  // Pointer events cover touch, mouse and pen in today's browsers; touch and mouse events are
+  // listened to as well, so a browser that only sends those still counts the press.
   let pressedOn = null;
-  document.addEventListener("pointerdown", (event) => { pressedOn = event.target; }, true);
+  let touchedOn = null; // where the current touch started
+  for (const type of ["pointerdown", "touchstart", "mousedown"]) {
+    document.addEventListener(type, (event) => {
+      pressedOn = event.target;
+      if (type === "touchstart") touchedOn = event.target;
+    }, { capture: true, passive: true });
+  }
+  // A tap on the dimmed background closes the pop-up straight from the touch, because some
+  // browsers (Safari on iPhone and iPad among them) don't always turn a tap on a plain area into a
+  // click. Only a touch that started on the backdrop counts, so the tap that opened the pop-up
+  // (which started on the board or a button) never closes it. preventDefault stops the click
+  // that might follow, which would otherwise close a second pop-up.
+  document.addEventListener("touchend", (event) => {
+    const backdrop = event.target.closest?.(".overlay-backdrop[data-close]");
+    const started = touchedOn;
+    touchedOn = null;
+    // The touch must have started on this backdrop too: some browsers report a touch's end on
+    // whatever is under the finger, which is the new pop-up's backdrop right after opening it.
+    if (!backdrop || !started || !backdrop.contains(started)) return;
+    if (!overlays.length || event.changedTouches.length !== 1 || event.touches.length) return;
+    event.preventDefault();
+    pressedOn = null;
+    closeTop();
+  }, { capture: true, passive: false });
   document.addEventListener("click", (event) => {
     const close = event.target.closest("[data-close]");
     const pressed = pressedOn;

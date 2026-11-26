@@ -539,14 +539,17 @@ test("Share Chess Quest opens the share sheet with the website link", async ({ p
   expect(shared.url).not.toContain("index.html");
 });
 
-test("without a share sheet, the link is copied", async ({ page, context }) => {
-  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
-  await page.addInitScript(() => { delete Navigator.prototype.share; });
+test("without a share sheet, the link is copied", async ({ page }) => {
+  // A stand-in clipboard: browsers differ in clipboard permissions for tests (Safari's has none).
+  await page.addInitScript(() => {
+    delete Navigator.prototype.share;
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: async (text) => { window.__copied = text; } } });
+  });
   await openApp(page);
   await page.locator("#settings-btn").click();
   await page.locator("#share-app-btn").click();
   await expect(page.locator("#toast")).toContainText("Link copied");
-  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(new URL("./", page.url()).href);
+  expect(await page.evaluate(() => window.__copied)).toBe(new URL("./", page.url()).href);
 });
 
 test("Home points new players at Learn, and the three ways to play share one card", async ({ page }) => {
@@ -607,4 +610,31 @@ test("the black king is drawn black (its white lines aren't filled in)", async (
   const fills = await page.evaluate(() => [...document.querySelectorAll('#bk path[stroke="#FFFFFF"]')].map((p) => getComputedStyle(p).fill));
   expect(fills.length).toBeGreaterThan(0);
   for (const fill of fills) expect(fill).toBe("none");
+});
+
+test("after a lesson quiz, a game's buttons sit side by side again (not stacked)", async ({ page }) => {
+  await openApp(page);
+  await page.locator("#learn-btn").click();
+  await page.locator('[data-lesson="opposition"]').click();
+  await page.locator("#tip-overlay .primary").click();
+  await expect(page.locator("#controls")).toHaveClass(/is-quiz/);
+  await page.goBack();
+  await page.goBack();
+  await page.locator("#new-game-btn").click();
+  await page.locator("#start-game-btn").click();
+  await expect(page.locator("#controls")).not.toHaveClass(/is-quiz/);
+});
+
+test("the update banner shows on Home only, never over a lesson's buttons", async ({ page }) => {
+  await openApp(page);
+  // Stand in for a waiting update: the banner as the app shows it on Home.
+  await page.evaluate(() => {
+    const banner = document.createElement("div");
+    banner.id = "update-banner";
+    banner.innerHTML = "<p>✨ A new version is ready.</p>";
+    document.body.appendChild(banner);
+  });
+  await expect(page.locator("#update-banner")).toBeVisible();
+  await page.locator("#learn-btn").click();
+  await expect(page.locator("#update-banner")).toHaveCount(0);
 });

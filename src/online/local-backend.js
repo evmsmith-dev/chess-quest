@@ -50,7 +50,10 @@ export async function createLocalBackend() {
     write(`seats:${code}`, { ...seats, [color]: { [key]: uid } });
     rememberSeatKey(code, color, key);
   }
-  addEventListener("pagehide", () => { for (const [code, color] of presence) transact(code, (g) => g && { ...g, presence: { ...g.presence, [color]: false } }); });
+  // (Firebase notices a closed app on its own servers; this test stand-in marks it on the way out.)
+  const goneOffline = () => { for (const [code, color] of presence) transact(code, (g) => g && { ...g, presence: { ...g.presence, [color]: false } }); };
+  addEventListener("pagehide", goneOffline);
+  addEventListener("beforeunload", goneOffline);
   return {
     kind: "local",
     uid,
