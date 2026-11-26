@@ -118,8 +118,12 @@ export function initOverlays() {
   // On a touch screen, the tap that opens a pop-up (a promotion, say) ends on the pop-up's own
   // backdrop, and the browser sends it there as a click. So a backdrop or ✕ only closes the pop-up
   // when the press also started on it. (Keyboard "clicks" have no press and always count.)
+  // Pointer events cover touch, mouse and pen in today's browsers; touch and mouse events are
+  // listened to as well, so a browser that only sends those still counts the press.
   let pressedOn = null;
-  document.addEventListener("pointerdown", (event) => { pressedOn = event.target; }, true);
+  for (const type of ["pointerdown", "touchstart", "mousedown"]) {
+    document.addEventListener(type, (event) => { pressedOn = event.target; }, { capture: true, passive: true });
+  }
   document.addEventListener("click", (event) => {
     const close = event.target.closest("[data-close]");
     const pressed = pressedOn;

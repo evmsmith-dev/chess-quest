@@ -539,14 +539,17 @@ test("Share Chess Quest opens the share sheet with the website link", async ({ p
   expect(shared.url).not.toContain("index.html");
 });
 
-test("without a share sheet, the link is copied", async ({ page, context }) => {
-  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
-  await page.addInitScript(() => { delete Navigator.prototype.share; });
+test("without a share sheet, the link is copied", async ({ page }) => {
+  // A stand-in clipboard: browsers differ in clipboard permissions for tests (Safari's has none).
+  await page.addInitScript(() => {
+    delete Navigator.prototype.share;
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: async (text) => { window.__copied = text; } } });
+  });
   await openApp(page);
   await page.locator("#settings-btn").click();
   await page.locator("#share-app-btn").click();
   await expect(page.locator("#toast")).toContainText("Link copied");
-  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(new URL("./", page.url()).href);
+  expect(await page.evaluate(() => window.__copied)).toBe(new URL("./", page.url()).href);
 });
 
 test("Home points new players at Learn, and the three ways to play share one card", async ({ page }) => {
