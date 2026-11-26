@@ -10,6 +10,7 @@ import { play } from "../ui/audio.js";
 import { buzz } from "../ui/haptics.js";
 import { alertPlayer, clearAlert, notificationPermission, enableNotifications } from "../ui/turnalert.js";
 import { startReview } from "./review.js";
+import { bump } from "../lib/achievements.js";
 import { setting } from "../lib/settings.js";
 import { getBackend } from "../online/backend.js";
 import { isOffline, onConnectionChange } from "../online/connection.js";
@@ -365,6 +366,7 @@ function finished() {
   O.shownResult = true;
   forget(O.code);
   countForFriend();
+  bump("onlineGames");
   const { winner, reason } = O.rec.result || {};
   const draw = winner === "draw";
   const won = winner === O.color;

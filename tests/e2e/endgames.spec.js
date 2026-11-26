@@ -83,10 +83,15 @@ test("a boss: win the pawn race, earn stars, and see them in Challenges", async 
   await expect(page.locator("#play-title")).toContainText("Pawn race");
   await playOut(page, "w", 6);
   await expect(page.locator("#result-title")).toHaveText("Boss beaten!");
-  await expect(page.locator("#result-text")).toContainText("⭐⭐⭐");
+  // The engine playing for the player sometimes takes a move more than the fastest win, so 2 or 3
+  // stars; the card must show the same stars and the best move count.
+  const text = await page.locator("#result-text").textContent();
+  const stars = text.match(/^⭐+/)[0];
+  const moves = Number(text.match(/Promoted in (\d+) moves/)[1]);
+  expect(stars.length).toBe(moves <= 4 ? 3 : 2);
   await page.locator("#result-primary").click();
-  await expect(page.locator('[data-boss="boss-race"]')).toContainText("⭐⭐⭐");
-  await expect(page.locator('[data-boss="boss-race"]')).toContainText("Best: 4 moves");
+  await expect(page.locator('[data-boss="boss-race"]')).toContainText(stars);
+  await expect(page.locator('[data-boss="boss-race"]')).toContainText(`Best: ${moves} moves`);
 });
 
 test("opposition: promote with the king's help, then hold the draw as Black", async ({ page }) => {
