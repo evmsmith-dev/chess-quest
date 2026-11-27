@@ -145,15 +145,17 @@ export function isPromotionMove(pieces, from, to) {
 }
 
 /**
- * The result pop-up: { emoji, title, text, stats: [[label, value]], primary: [label, fn],
- * secondary: [label, fn], onClose }.
+ * The result pop-up: { emoji, title, text, stats: [[label, value]], checks: [{ label, ok }],
+ * primary: [label, fn], secondary: [label, fn], onClose }. `checks` is a ✅/❌ list.
  */
-export function showResult({ emoji, title, text, stats = [], primary, secondary, onClose }) {
+export function showResult({ emoji, title, text, stats = [], checks = [], primary, secondary, onClose }) {
   byId("result-emoji").textContent = emoji;
   byId("result-title").textContent = title;
   byId("result-text").textContent = text || "";
-  byId("result-stats").innerHTML = stats.map(([label, value]) => `<div class="result-stat"><span>${label}</span><strong>${value}</strong></div>`).join("");
-  byId("result-stats").hidden = !stats.length;
+  byId("result-stats").innerHTML = checks.length
+    ? `<ul class="result-checks">${checks.map((c) => `<li class="${c.ok ? "is-ok" : "is-missed"}"><span aria-hidden="true">${c.ok ? "✅" : "❌"}</span> ${c.label}<span class="visually-hidden">: ${c.ok ? "done" : "missed"}</span></li>`).join("")}</ul>`
+    : stats.map(([label, value]) => `<div class="result-stat"><span>${label}</span><strong>${value}</strong></div>`).join("");
+  byId("result-stats").hidden = !stats.length && !checks.length;
   let action = null;
   const wire = (id, spec) => {
     const button = byId(id);

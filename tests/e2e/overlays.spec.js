@@ -106,3 +106,19 @@ for (const [id, open] of Object.entries(OPENERS)) {
     });
   }
 }
+
+// With a large phone font (Android's font size setting), no pop-up gets wider than the screen
+// (which made it scroll sideways and look off-centre).
+for (const [id, open] of Object.entries(OPENERS)) {
+  test(`${id} fits the screen's width with a large font`, async ({ page }) => {
+    await openApp(page, { storage: {
+      friends: [{ id: "ABCDEFGHJKMNPQRS", name: "Micah", avatar: 4, added: 1 }],
+      friendRecords: { ABCDEFGHJKMNPQRS: { w: 0, l: 3, d: 1, codes: [] } },
+    } });
+    await page.evaluate(() => { document.documentElement.style.fontSize = "130%"; });
+    await open(page);
+    const card = page.locator(`#${id} .overlay-card`);
+    await expect(card).toBeVisible();
+    expect(await card.evaluate((el) => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(1);
+  });
+}

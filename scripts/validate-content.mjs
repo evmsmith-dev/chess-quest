@@ -4,7 +4,7 @@ import { readFile } from "node:fs/promises";
 import { Chess } from "chess.js";
 import { UNITS } from "../src/content/lessons.js";
 import { RULES } from "../src/content/rules.js";
-import { BOSSES } from "../src/content/bosses.js";
+import { BOSSES, OPENING_BOSSES } from "../src/content/bosses.js";
 import { starPar, solutions, taskStartFen, judgePuzzleMove, parseUci } from "../src/lib/tasks.js";
 
 const problems = [];
@@ -27,6 +27,19 @@ for (const boss of BOSSES) {
   }
 }
 
+for (const boss of OPENING_BOSSES) {
+  const where = `boss ${boss.id}`;
+  if (ids.has(boss.id)) fail(where, "duplicate id");
+  ids.add(boss.id);
+  try {
+    if (new Chess(boss.fen).isGameOver()) fail(where, "game already over");
+    if (boss.goal !== "opening") fail(where, `unknown goal ${boss.goal}`);
+    if (!(boss.moves > 0)) fail(where, "needs a move limit");
+    if (!boss.tip?.length) fail(where, "needs a tip");
+  } catch (error) {
+    fail(where, error.message);
+  }
+}
 for (const unit of UNITS) {
   for (const lesson of unit.lessons) {
     if (ids.has(lesson.id)) fail(lesson.id, "duplicate lesson id");
@@ -103,4 +116,4 @@ if (problems.length) {
   console.error(problems.join("\n"));
   process.exit(1);
 }
-console.log(`Content OK: ${ids.size - BOSSES.length} lessons, ${BOSSES.length} endgame bosses, ${RULES.length} rules, ${count} puzzles.`);
+console.log(`Content OK: ${ids.size - BOSSES.length - OPENING_BOSSES.length} lessons, ${BOSSES.length} endgame bosses, ${OPENING_BOSSES.length} opening bosses, ${RULES.length} rules, ${count} puzzles.`);

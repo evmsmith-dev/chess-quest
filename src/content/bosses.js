@@ -71,7 +71,32 @@ export const BOSSES = [
   },
 ];
 
-export const bossById = (id) => BOSSES.find((b) => b.id === id);
+// Opening bosses (in Challenges): play the first 10 moves against the bot, then a report card
+// checks four habits (src/lib/opening.js). Stars for how many pass, not for winning.
+export const OPENING_BOSSES = [
+  {
+    id: "boss-opening-white",
+    title: "Opening as White",
+    emoji: "🚀",
+    goal: "opening",
+    moves: 10,
+    fen: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+    text: "Play your first 10 moves: take the center, bring out your pieces, castle, and keep your pieces safe.",
+    tip: ["After 10 moves you get a report card with four checks: a pawn in the center, at least three knights and bishops out, castled, and no pieces lost.", "All four checks earn 3 stars. You don't need to win: good habits are the goal."],
+  },
+  {
+    id: "boss-opening-black",
+    title: "Opening as Black",
+    emoji: "🛡️",
+    goal: "opening",
+    moves: 10,
+    fen: "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1",
+    text: "White opened with e4. Play your first 10 moves: fight for the center, develop, castle, and keep your pieces safe.",
+    tip: ["Answer e4 with e5 (or d5), bring out your knights and bishops, and castle.", "Watch f7: if White's knight and bishop both aim at it, block or defend in time. After 10 moves you get a report card."],
+  },
+];
+
+export const bossById = (id) => BOSSES.find((b) => b.id === id) || OPENING_BOSSES.find((b) => b.id === id);
 
 /** Stars for winning in `used` moves. */
 export const bossStars = (boss, used) => (used <= boss.par ? 3 : used <= Math.ceil(boss.par * 1.5) ? 2 : 1);

@@ -4,6 +4,7 @@ import { botMove, bestMove } from "../chess/bot.js";
 import { starTargets, starMove, starPar, judgeMove, taskStartFen, parseUci } from "../lib/tasks.js";
 import { ALL_LESSONS } from "../content/lessons.js";
 import { bossById, bossStars } from "../content/bosses.js";
+import { openingReport, openingStars } from "../lib/opening.js";
 import { coachLine } from "../ui/coach.js";
 import { setting } from "../lib/settings.js";
 import { board, useMode, setTitle, setMessage, setControls, setBars, feelMove, choosePromotion, isPromotionMove, showResult, miniBoard, setTaskDots, hideBoard } from "./boardscreen.js";
@@ -45,11 +46,12 @@ export const bossProgress = () => readJson("bosses", {});
 export function startBoss(id) {
   const boss = bossById(id);
   if (!boss) return;
-  const lesson = { id, title: boss.title, unit: { title: "Endgame boss" }, tip: boss.tip, tasks: [{ type: "play", goal: boss.goal, moves: boss.moves, fen: boss.fen, text: boss.text }] };
-  L = { lesson, index: -1, task: 0, mistakes: 0, done: [], token: 0, boss, onPlayWon: (used) => bossWon(boss, used) };
+  const opening = boss.goal === "opening";
+  const lesson = { id, title: boss.title, unit: { title: opening ? "Opening boss" : "Endgame boss" }, tip: boss.tip, tasks: [{ type: "play", goal: boss.goal, moves: boss.moves, fen: boss.fen, text: boss.text }] };
+  L = { lesson, index: -1, task: 0, mistakes: 0, done: [], token: 0, boss, onPlayWon: (used) => bossWon(boss, used), onOpeningDone: (game, color) => openingDone(boss, game, color) };
   if (currentScreen() !== "play") openScreen("play", { onLeave: () => { if (L) L.token++; L = null; } });
   useMode(mode);
-  setTitle(`${boss.emoji} ${boss.title}`, `Endgame boss · ${"⭐".repeat(3)} in ${boss.par} moves`);
+  setTitle(`${boss.emoji} ${boss.title}`, opening ? `Opening boss · ${"⭐".repeat(3)} for all 4 checks` : `Endgame boss · ${"⭐".repeat(3)} in ${boss.par} moves`);
   showTip(() => startTask(0));
 }
 
@@ -75,6 +77,39 @@ function bossWon(boss, used) {
     title: "Boss beaten!",
     text: `${"⭐".repeat(stars)}${"☆".repeat(3 - stars)}  ${what} in ${used} move${used === 1 ? "" : "s"}. ${stars === 3 ? "Perfect!" : `Do it in ${boss.par} or fewer for 3 stars.`}`,
     stats: [["Moves", used], ["Best", Math.min(before?.best ?? Infinity, used)], ["3 stars", `≤ ${boss.par}`]],
+    secondary: ["↺ Try again", () => startTask(0)],
+    primary: ["Back to Challenges", () => backTo("challenges")],
+  });
+}
+
+/** An opening boss's 10 moves are played: the report card. */
+function openingDone(boss, game, color) {
+  const report = openingReport(game, color);
+  const passed = report.filter((c) => c.ok).length;
+  const stars = openingStars(report);
+  const all = bossProgress();
+  const before = all[boss.id];
+  if (stars) all[boss.id] = { stars: Math.max(before?.stars || 0, stars), best: Math.max(before?.best || 0, passed) };
+  writeJson("bosses", all);
+  hooks.onChange();
+  board.setMovable(null);
+  const again = { label: "↺ Try again", onClick: () => startTask(0) };
+  if (stars) {
+    L.done[0] = true;
+    setTaskDots(1, 0, L.done);
+    play("win");
+    buzz("win");
+    if (stars === 3) window.confetti?.({ particleCount: 120, spread: 75, origin: { y: 0.6 }, disableForReducedMotion: true });
+    setMessage(`✅ Opening done: ${passed} of 4 checks. ${"⭐".repeat(stars)}${"☆".repeat(3 - stars)}`, "good");
+  } else {
+    miss(`Only ${passed} of 4 checks. Try again!`);
+  }
+  setControls([again, { label: "🎯 Challenges", kind: "primary", onClick: () => backTo("challenges") }]);
+  showResult({
+    emoji: stars === 3 ? "🏆" : stars ? "🎉" : "📋",
+    title: stars === 3 ? "A perfect opening!" : stars ? "Report card" : "Not yet!",
+    text: `${"⭐".repeat(stars)}${"☆".repeat(3 - stars)}  ${passed} of 4 checks.${stars === 3 ? "" : " Get all four for 3 stars."}`,
+    checks: report,
     secondary: ["↺ Try again", () => startTask(0)],
     primary: ["Back to Challenges", () => backTo("challenges")],
   });
@@ -344,12 +379,11 @@ function quizTask(task) {
 function playTask(task) {
   let game = new Chess(task.fen);
   const color = game.turn();
-  const startMoveNumber = Number(task.fen.split(" ")[5]) || 1;
   let thinking = false;
   const token = L.token;
   board.setOrientation(color);
-  const used = () => Number(game.fen().split(" ")[5]) - startMoveNumber + (game.turn() !== color ? 1 : 0);
-  const status = () => `${task.text}<span class="task-meta">${task.goal === "hold" ? "Moves held" : "Moves used"}: ${used()} of ${task.moves}</span>`;
+  const used = () => Math.ceil(game.history().length / 2); // the player moves first
+  const status = () => `${task.text}<span class="task-meta">${task.goal === "hold" ? "Moves held" : task.goal === "opening" ? "Moves played" : "Moves used"}: ${used()} of ${task.moves}</span>`;
   const won = (text) => (L.onPlayWon ? L.onPlayWon(used(), text) : succeed(text));
   const show = (move) => {
     board.setPieces(piecesFromFen(game.fen()), { moves: move ? animationFor(move) : [], animate: Boolean(move) });
@@ -393,6 +427,9 @@ function playTask(task) {
       if (task.goal === "hold") {
         if (outcome) { won(task.success || "Held: it's a draw!"); return; }
         if (used() >= task.moves) { won(task.success || `You held for ${task.moves} moves!`); return; }
+      } else if (task.goal === "opening") {
+        if (outcome?.reason === "checkmate") { L.onOpeningDone(game, color); return; }
+        if (outcome) { fail("The game ended in a draw. Try again!"); return; }
       } else {
         if (outcome?.reason === "checkmate") { won(`Checkmate in ${used()} moves!`); return; }
         if (outcome) { fail(outcome.reason === "stalemate" ? "Stalemate! The king had no legal move but wasn't in check, so it's a draw. Try again, and leave the king a square until you can give mate." : "The game ended in a draw. Try again!"); return; }
@@ -401,7 +438,7 @@ function playTask(task) {
       thinking = true;
       board.setMovable(null);
       setMessage(status());
-      const uci = await botMove(game.fen(), [], "intermediate");
+      const uci = await botMove(game.fen(), [], task.goal === "opening" ? "beginner" : "intermediate");
       await new Promise((r) => setTimeout(r, 350));
       if (!L || L.token !== token) return;
       thinking = false;
@@ -412,6 +449,9 @@ function playTask(task) {
       if (task.goal === "hold") {
         if (reply.promotion) { fail("The pawn promoted. Try again: keep your king in front of the pawn."); return; }
         if (after) { won(task.success || "Held: it's a draw!"); return; }
+      } else if (task.goal === "opening") {
+        if (after) { fail(after.reason === "checkmate" ? "Checkmated! Try again: castle early and watch f7." : "The game ended in a draw. Try again!"); return; }
+        if (used() >= task.moves) { L.onOpeningDone(game, color); return; }
       } else if (after) {
         fail(task.goal === "promote" ? "Your pawn is gone, so it's a draw. Try again: keep the pawn protected." : "The game ended in a draw. Try again!");
         return;

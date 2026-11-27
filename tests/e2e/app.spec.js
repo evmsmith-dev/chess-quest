@@ -12,7 +12,7 @@ async function startGame(page, { level = "beginner", color = "w" } = {}) {
 test("home shows every mode and the daily puzzle", async ({ page }) => {
   await openApp(page);
   await expect(page.locator("#daily-status")).toContainText("Today:");
-  await expect(page.locator("#learn-summary")).toHaveText("0 of 38 lessons");
+  await expect(page.locator("#learn-summary")).toHaveText("0 of 43 lessons");
   await expect(page.locator("#challenge-summary")).toContainText("solved");
 });
 

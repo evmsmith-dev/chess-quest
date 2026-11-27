@@ -84,7 +84,7 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid 
 
 .segmented { display: flex; gap: 6px; background: var(--primary-soft); padding: 4px; border-radius: 14px; }
 .segmented button {
-  flex: 1 1 0; border: 0; border-radius: 10px; background: transparent; min-height: 44px;
+  flex: 1 1 0; min-width: 0; border: 0; border-radius: 10px; background: transparent; min-height: 44px;
   padding: 8px 4px; font-weight: 600; color: var(--muted);
   display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.15;
 }
@@ -422,11 +422,12 @@ html.no-coords .coord { display: none; }
 .invite-text { flex: 1 1 160px; margin: 0; font-weight: 600; line-height: 1.35; }
 .invite-actions { display: flex; align-items: center; gap: 4px; margin-left: auto; }
 .invite-actions .primary { border: 0; border-radius: 999px; padding: 8px 20px; min-height: 44px; font-weight: 700; }
-.friend-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+/* minmax(0, 1fr): a long name or record shrinks inside the pop-up instead of widening it. */
+.friend-list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; }
 .friend-list li { display: flex; align-items: center; gap: 10px; background: var(--bg); border-radius: 12px; padding: 6px 6px 6px 12px; }
 .friend-list .friend-avatar { font-size: 1.5rem; }
 .friend-list .friend-name { flex: 1; min-width: 0; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.friend-record { display: block; font-weight: 400; font-size: 0.82rem; color: var(--muted); }
+.friend-record { display: block; white-space: normal; font-weight: 400; font-size: 0.82rem; color: var(--muted); }
 .react-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 12px; }
 .react-btn { display: flex; align-items: center; gap: 8px; min-height: 52px; padding: 8px 12px; border: 0; border-radius: 14px; background: var(--bg); font-weight: 600; text-align: left; }
 .react-emoji { font-size: 1.6rem; line-height: 1; }
@@ -447,8 +448,8 @@ html.no-coords .coord { display: none; }
 .offline-note, .conn-banner { margin: 0 0 10px; padding: 10px 14px; border-radius: 14px; background: #fff3cd; color: #5c4400; border: 2px solid #f0c14b; line-height: 1.4; }
 :root[data-theme="dark"] .offline-note, :root[data-theme="dark"] .conn-banner { background: #3a3000; color: #ffe8a3; border-color: #8a6d00; }
 .conn-banner { margin: 0; }
-.avatar-options { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
-.avatar-options button { min-height: 44px; border: 2px solid transparent; border-radius: 12px; background: var(--bg); font-size: 1.5rem; }
+.avatar-options { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; }
+.avatar-options button { min-height: 44px; padding: 0; border: 2px solid transparent; border-radius: 12px; background: var(--bg); font-size: 1.5rem; }
 .avatar-options button[aria-pressed="true"] { border-color: var(--primary); background: var(--primary-soft); }
 .wide-button { width: 100%; min-height: 48px; border: 0; border-radius: 999px; font-weight: 700; font-size: 1.05rem; margin-top: 10px; }
 .join-row { display: flex; gap: 8px; }
@@ -469,7 +470,7 @@ html.no-coords .coord { display: none; }
 .privacy-card li { margin: 6px 0; }
 .privacy-card a { color: var(--primary); font-weight: 600; }
 .privacy-lead { font-weight: 600; }
-.name-fields { display: grid; gap: 8px; margin-bottom: 4px; }
+.name-fields { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; margin-bottom: 4px; }
 .name-field { display: flex; align-items: center; gap: 10px; font-weight: 600; }
 .name-field span { width: 76px; flex: none; }
 .name-field input {
@@ -484,6 +485,9 @@ html.no-coords .coord { display: none; }
 .result-emoji { font-size: 3rem; line-height: 1; margin-bottom: 6px; }
 .result-text { color: var(--muted); margin: 0 0 12px; line-height: 1.4; }
 .result-stats { display: flex; justify-content: center; gap: 10px; margin: 0 0 16px; flex-wrap: wrap; }
+.result-checks { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; text-align: left; width: 100%; }
+.result-checks li { background: var(--primary-soft); border-radius: 12px; padding: 8px 12px; font-weight: 600; }
+.result-checks li.is-missed { background: var(--danger-soft); }
 .result-stat { background: var(--primary-soft); border-radius: 14px; padding: 8px 14px; min-width: 88px; }
 .result-stat span { display: block; font-size: 0.85rem; color: var(--muted); }
 .result-stat strong { font-size: 1.3rem; }
