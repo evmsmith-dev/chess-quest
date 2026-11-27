@@ -425,6 +425,92 @@ export const UNITS = [
     ],
   },
   {
+    id: "opening-plans",
+    title: "Opening plans",
+    emoji: "🗺️",
+    lessons: [
+      {
+        id: "italian",
+        title: "The Italian Game",
+        tip: [
+          "1.e4 e5 2.Nf3 Nc6 3.Bc4 is the Italian Game, one of the oldest openings. Each move follows a rule: take the center, bring out a knight that attacks e5, and aim the bishop at f7.",
+          "f7 is the weak spot near Black's king: only the king protects it. After Bc4, White castles and gets ready to push c3 and d4 to take the whole center.",
+        ],
+        tipFen: "r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R b KQkq - 3 3",
+        tipHighlight: ["c4", "f7"],
+        tasks: [
+          { type: "move", goal: "exact", fen: "rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2", accept: ["g1f3"], text: "Start the Italian: bring out the knight that attacks Black's e5 pawn.", success: "Nf3 develops a piece and attacks e5 at the same time. Black has to defend it.", wrong: { b1c3: "That develops a knight, but it doesn't attack anything. Nf3 develops and attacks e5.", f1c4: "The bishop comes next! First the knight: it develops and attacks e5.", d1h5: "Bringing the queen out early lets Black chase her. Develop a knight first.", d1f3: "The queen came out too early, and she took the knight's best square. Develop a knight first.", g1e2: "On e2 the knight blocks your bishop and doesn't attack e5. Try f3." }, wrongDefault: "Bring out the g1 knight to the square where it attacks e5." },
+          { type: "move", goal: "exact", fen: "r1bqkbnr/pppp1ppp/2n5/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 2 3", accept: ["f1c4"], text: "Black defended with Nc6. Now the bishop: put it where it aims at f7.", success: "Bc4: that's the Italian Game! The bishop aims at f7, the square only Black's king protects.", wrong: { f1b5: "Bb5 is a great move too (that's the Ruy Lopez), but this lesson is the Italian: aim the bishop at f7.", f1e2: "Solid, but from e2 the bishop doesn't aim at f7. Find a better square.", f1d3: "On d3 the bishop blocks your d-pawn, and it doesn't aim at f7.", b1c3: "A good developing move, but this task is about the bishop: aim it at f7." }, wrongDefault: "Move the f1 bishop to the square where it aims at f7." },
+          { type: "quiz", fen: "r1bqk1nr/pppp1ppp/2n5/2b1p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 4 4", highlight: ["c4", "f7"], text: "Why does White's bishop aim at f7?", options: ["Only the king protects f7, so it's a weak spot", "The bishop wants to reach the rook on h8", "Bishops have to stay near the enemy king"], answer: 0, explain: "With only the king guarding it, f7 is the easiest place to attack early in the game." },
+          { type: "move", goal: "exact", fen: "r1bqk2r/pppp1ppp/2n2n2/2b1p3/2B1P3/2P2N2/PP1P1PPP/RNBQK2R w KQkq - 1 5", accept: ["d2d4"], text: "You played c3 to get ready. Now take the whole center with one pawn move.", success: "d4! With pawns on e4 and d4 (and c3 behind them), White owns the center.", wrong: { d2d3: "Safe, but d4 grabs twice as much space. That's why you played c3.", e1g1: "Castling is a good move too, but now is the moment for the plan: c3 was played to support d4.", b2b4: "That's a pawn on the edge of the action. The plan with c3 is d4." }, wrongDefault: "c3 was played to support a pawn move to the center. Which pawn goes there?" },
+          { type: "quiz", text: "In the Italian Game, what's White's plan after Bc4?", options: ["Castle, then push c3 and d4 to take the center", "Bring the queen out to attack f7 right away", "Push the h-pawn to attack"], answer: 0, explain: "Develop, castle, then grab the center with c3 and d4. A quick queen attack is easy for Black to stop." },
+        ],
+      },
+      {
+        id: "black-e4",
+        title: "Playing Black against e4",
+        tip: [
+          "When White opens 1.e4, a good answer is 1...e5. Then develop: the knight to c6 defends e5, the other knight to f6 attacks e4, the bishop goes to c5 or e7, and you castle.",
+          "Watch f7! If White's knight jumps to g5 so that knight and bishop both attack f7, block the bishop's line with ...d5.",
+        ],
+        tipFen: "r1bqkb1r/pppp1ppp/2n2n2/4p1N1/2B1P3/8/PPPP1PPP/RNBQK2R b KQkq - 5 4",
+        tipHighlight: ["g5", "c4", "f7"],
+        tasks: [
+          { type: "move", goal: "exact", fen: "rnbqkbnr/pppp1ppp/8/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2", accept: ["b8c6"], text: "White's knight attacks your e5 pawn. Defend it by developing a piece.", success: "Nc6 defends e5 and brings a piece out. Two jobs in one move.", wrong: { d7d6: "d6 defends too, but it's a pawn move that shuts in your f8 bishop. Defend with a piece: Nc6.", f7f6: "That defends e5, but it weakens your king and takes the knight's best square. Try Nc6.", d8f6: "The queen defends, but she came out early and took the knight's square. Use a knight.", d8e7: "The queen defends, but she blocks your f8 bishop. Use a knight.", g8f6: "That's a real opening (the Petrov), but it doesn't defend e5. Try Nc6." }, wrongDefault: "Which knight can come out and defend e5?" },
+          { type: "move", goal: "exact", fen: "r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R b KQkq - 3 3", accept: ["g8f6", "f8c5", "f8e7"], text: "White played the Italian. Bring out another piece.", success: "Developed! Another piece is in the game.", successFor: { f8e7: "Developed! Be7 is solid and gets you ready to castle. Bc5 or Nf6 do a little more." }, wrong: { g8h6: "A knight on the rim is dim. From f6 it attacks e4.", f8d6: "On d6 the bishop blocks your d-pawn. Try c5 or e7.", d8f6: "The queen can wait, and she takes the knight's best square. Develop a knight or bishop.", f7f5: "That opens lines to your own king while White's bishop aims at it. Develop a piece instead." }, wrongDefault: "Bring out a piece that hasn't moved yet: the g8 knight or the f8 bishop." },
+          { type: "quiz", fen: "r1bqkb1r/pppp1ppp/2n2n2/4p1N1/2B1P3/8/PPPP1PPP/RNBQK2R b KQkq - 5 4", highlight: ["g5", "c4", "f7"], text: "White's knight jumped to g5. Why is that dangerous?", options: ["The knight and the bishop both attack f7", "The knight can take your queen", "It traps your king in the corner"], answer: 0, explain: "Nxf7 would fork your queen and rook. Two attackers, and only the king defends f7." },
+          { type: "move", goal: "exact", fen: "r1bqkb1r/pppp1ppp/2n2n2/4p1N1/2B1P3/8/PPPP1PPP/RNBQK2R b KQkq - 5 4", accept: ["d7d5"], text: "Stop the attack on f7: block the bishop's line with a pawn.", success: "d5! The bishop's line to f7 is blocked, and you fight for the center too.", wrong: { h7h6: "Too slow: Nxf7 comes first, forking your queen and rook.", f8c5: "That's a wild gamble (the Traxler). The safe answer blocks the bishop: d5.", d8e7: "The queen guards f7, but she gets stuck there. d5 blocks the bishop and fights for the center.", f6g4: "That ignores the threat: Nxf7 forks your queen and rook." }, wrongDefault: "Nxf7 would fork your queen and rook. Put a pawn between the bishop and f7." },
+        ],
+      },
+      {
+        id: "queens-gambit",
+        title: "The Queen's Gambit",
+        tip: [
+          "1.d4 d5 2.c4 is the Queen's Gambit. A gambit offers a pawn: here White offers the c4 pawn to pull Black's d5 pawn away from the center.",
+          "If Black takes, White usually wins the pawn back. Trying to hold on to it with ...b5 can cost a whole rook! A calm answer for Black is ...e6 or ...c6, which keeps the d5 pawn strong.",
+        ],
+        tipFen: "rnbqkbnr/ppp1pppp/8/3p4/2PP4/8/PP2PPPP/RNBQKBNR b KQkq - 0 2",
+        tipHighlight: ["c4", "d5"],
+        tasks: [
+          { type: "move", goal: "exact", fen: "rnbqkbnr/ppp1pppp/8/3p4/3P4/8/PPP1PPPP/RNBQKBNR w KQkq - 0 2", accept: ["c2c4"], text: "Play the Queen's Gambit: offer a pawn that attacks Black's d5 pawn.", success: "c4: the Queen's Gambit! If d5 takes, Black gives up the center.", wrong: { g1f3: "A good developing move, but this lesson is the gambit: offer the c-pawn.", b1c3: "A good developing move, but this lesson is the gambit: offer the c-pawn.", c1f4: "That's the London System, a fine opening, but this lesson is the gambit: offer the c-pawn.", e2e4: "That pawn can just be taken, and it doesn't pull Black's pawn away from the center. Try the c-pawn." }, wrongDefault: "Push a pawn that attacks d5." },
+          { type: "move", goal: "exact", fen: "rnbqkbnr/ppp1pppp/8/3p4/2PP4/8/PP2PPPP/RNBQKBNR b KQkq - 0 2", accept: ["e7e6", "c7c6"], text: "Now you're Black. Keep your d5 pawn strong with a pawn that protects it.", success: "Solid! Your d5 pawn holds the center, and e6 opens the way for your f8 bishop.", successFor: { c7c6: "That's the Slav Defense, another great answer. Your d5 pawn holds the center." }, wrong: { d5c4: "Taking is allowed (the Queen's Gambit Accepted), but this time keep your center: protect d5 with a pawn.", g8f6: "A good piece move, but this task is about protecting d5 with a pawn.", b8c6: "The knight protects d5, but it blocks your c-pawn. Protect d5 with a pawn.", e7e5: "That's a real gambit of Black's own, but it leaves d5 unprotected. Try e6 or c6." }, wrongDefault: "Which pawn can protect d5?" },
+          { type: "move", goal: "exact", fen: "rnbqkbnr/p3pppp/8/1p6/2pP4/4P3/1P3PPP/RNBQKBNR w KQkq - 0 6", accept: ["d1f3"], text: "Black took the c4 pawn and clung to it with ...b5 and ...c6, and the long diagonal is open. Find the queen move that attacks the rook in the corner.", success: "Qf3! The queen attacks the rook on a8 and Black can't save everything. Holding on to the gambit pawn cost Black a piece.", wrong: { b2b3: "That attacks the pawns, but there's something much bigger: look at the rook on a8.", d1h5: "The queen comes out, but on h5 she doesn't attack anything big. Look at the a8 rook.", f1e2: "A fine developing move, but there's something better: look at the long diagonal to a8." }, wrongDefault: "Look at the long light diagonal from f3 to a8. What can your queen attack there?" },
+          { type: "quiz", text: "Black took the gambit pawn on c4. Should Black try hard to keep it?", options: ["No: it usually comes back, so develop instead", "Yes: an extra pawn is always worth it", "Yes: push ...b5 and ...a6 to protect it"], answer: 0, explain: "Grabbing the pawn is fine, but clinging to it wastes moves and can lose material. Develop your pieces." },
+        ],
+      },
+      {
+        id: "traps-2",
+        title: "More traps to avoid",
+        tip: [
+          "Legal's mate: a knight that looks pinned to its queen can still move, if giving up the queen leads to checkmate.",
+          "Noah's Ark trap: a bishop on b3 can get shut in by pawns on a6, b5 and c4. Know where your pieces can retreat to!",
+        ],
+        tasks: [
+          { type: "move", goal: "exact", fen: "rn1qkbnr/ppp2p1p/3p2p1/4p3/2B1P1b1/2N2N2/PPPP1PPP/R1BQK2R w KQkq - 0 5", accept: ["f3e5"], text: "Black's bishop pins your knight to your queen, and Black played the slow g6. Ignore the pin: take on e5!", success: "Nxe5! If Black takes your queen, you have a checkmate ready.", wrong: { h2h3: "That's a fine move, but there's something much stronger. The knight can take on e5 even though it looks pinned.", e1g1: "Castling is good, but there's a trap to spring now. Take on e5 with the knight." }, wrongDefault: "Take the e5 pawn with your 'pinned' knight." },
+          { type: "move", goal: "exact", fen: "rn1qkbnr/ppp2p1p/3p2p1/4N3/2B1P3/2N5/PPPP1PPP/R1BbK2R w KQkq - 0 6", accept: ["c4f7"], text: "Black took your queen! Now give check with the bishop to start the checkmate.", success: "Bxf7+! The king has only one square: e7.", wrong: { c3d1: "Taking the bishop back leaves you a queen down. There's a checkmate: start with a bishop check.", e5f7: "Nxf7 attacks the queen and rook, but there's a checkmate. Start with the bishop." }, wrongDefault: "Which bishop move gives check?" },
+          { type: "move", goal: "mate", fen: "rn1q1bnr/ppp1kB1p/3p2p1/4N3/4P3/2N5/PPPP1PPP/R1BbK2R w KQ - 1 7", text: "Now checkmate in one with a knight!", success: "Nd5#! That's Legal's mate: three minor pieces beat the queen." },
+          { type: "move", goal: "exact", fen: "r2qkbnr/3b1ppp/p2p4/1ppQ4/4P3/1B6/PPP2PPP/RNB1K2R b KQkq - 5 11", accept: ["c5c4"], text: "You're Black. White's queen took a pawn on d5 and threatens Qxf7#. Stop the mate and trap the b3 bishop with one pawn move!", success: "c4! It blocks the bishop's line to f7, and the bishop on b3 has nowhere to go. That's the Noah's Ark trap.", wrong: { g8f6: "The knight attacks the queen, but Qxf7 is checkmate! Block the bishop's line first.", a8a7: "Qxf7 is checkmate! Block the bishop's line to f7.", d8e7: "The queen guards f7, but there's better: a pawn move blocks the bishop and traps it." }, wrongDefault: "Qxf7 would be checkmate. Which pawn can block the bishop and trap it too?" },
+          { type: "quiz", fen: "r2qkbnr/3b1ppp/p2p4/1p1Q4/2p1P3/1B6/PPP2PPP/RNB1K2R w KQkq - 0 12", highlight: ["b3"], text: "Why is White's bishop on b3 in trouble?", options: ["It's trapped: every square it can go to is blocked or attacked", "It's pinned to the king", "A knight can take it"], answer: 0, explain: "a4 and c4 are covered by Black's pawns, and White's own pawns block a2 and c2. Next move a pawn takes the bishop." },
+        ],
+      },
+      {
+        id: "opening-checklist",
+        title: "Opening checklist",
+        tip: [
+          "In your first ten moves: get a pawn to the center, bring out your knights and bishops (knights usually first), castle, and connect your rooks.",
+          "Avoid: bringing the queen out early, moving the same piece twice, and pushing pawns on the edge.",
+        ],
+        tasks: [
+          { type: "quiz", text: "Which pieces usually come out before the bishops?", options: ["The knights", "The queen", "The rooks"], answer: 0, explain: "Knights are slow and know where they belong (f3 and c3). Bishops can wait a move to see which diagonal is best." },
+          { type: "quiz", text: "Which of these is NOT a good goal for your first ten moves?", options: ["Bring the queen out to grab pawns", "Get a pawn to the center", "Castle"], answer: 0, explain: "An early queen gets chased by enemy pieces, and each chase gives your opponent a free developing move." },
+          { type: "move", goal: "exact", fen: "r2q1rk1/ppp1bppp/2npbn2/4p1B1/2B1P3/2NP1N2/PPP2PPP/R2Q1RK1 w - - 4 8", accept: ["d1d2", "d1e2"], text: "Your knights and bishops are out and you've castled. Connect your rooks: move the piece standing between them.", success: "Connected! Now the rooks protect each other and can move to the center files.", wrong: { d1e1: "The queen is still on the back row, between the rooks. Move her up a row.", d1c1: "The queen is still on the back row, between the rooks. Move her up a row.", d1b1: "The queen is still on the back row, between the rooks. Move her up a row." }, wrongDefault: "The queen sits between your rooks. Move her up one row." },
+          { type: "quiz", text: "What does it mean to connect your rooks?", options: ["Clear the back row so the rooks protect each other", "Put both rooks on the same square", "Trade one rook away"], answer: 0, explain: "Once the knights, bishops and queen have moved and you've castled, the rooks see each other along the back row." },
+          { type: "quiz", text: "Which pawns are usually best to move early?", options: ["The center pawns (e and d)", "The edge pawns (a and h)", "The f and g pawns in front of your king"], answer: 0, explain: "Center pawns take space and open lines for your bishops and queen. The f and g pawns protect your king, and edge pawns do little." },
+        ],
+      },
+    ],
+  },
+  {
     id: "patterns",
     title: "Checkmate patterns",
     emoji: "🎯",
