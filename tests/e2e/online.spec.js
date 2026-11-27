@@ -663,3 +663,21 @@ test("a challenge during a game shows as a banner, and tapping it opens the chal
   await expect(host.locator("#challenge-overlay")).toBeVisible();
   await expect(host.locator("#home")).toBeVisible();
 });
+
+test("with a large phone font, the game-over buttons keep their text inside and stay on screen", async ({ context }) => {
+  const { host, guest } = await twoPlayers(context);
+  await host.locator("#controls").getByRole("button", { name: /Resign/ }).click();
+  await host.locator("#confirm-ok").click();
+  await guest.locator("#result-overlay .overlay-close").click();
+  // Android's font size setting makes text bigger than the buttons were made for.
+  await guest.evaluate(() => { document.documentElement.style.fontSize = "130%"; });
+  await expect(guest.locator("#controls .control")).toHaveCount(4);
+  const width = guest.viewportSize().width;
+  for (const button of await guest.locator("#controls .control").all()) {
+    const fits = await button.evaluate((el) => el.scrollWidth <= el.clientWidth + 1);
+    expect(fits, await button.textContent()).toBe(true);
+    const box = await button.boundingBox();
+    expect(box.x).toBeGreaterThanOrEqual(0);
+    expect(box.x + box.width).toBeLessThanOrEqual(width + 1);
+  }
+});
