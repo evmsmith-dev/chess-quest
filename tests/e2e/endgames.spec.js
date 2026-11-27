@@ -118,3 +118,23 @@ test("boss: King leads the way can be won", async ({ page }) => {
   await playOut(page, "w", 14);
   await expect(page.locator("#result-title")).toHaveText("Boss beaten!");
 });
+
+test("pawn breakthrough: b6, the second push, then play it out", async ({ page }) => {
+  test.setTimeout(120000);
+  await openApp(page, { clock: false });
+  await page.locator("#learn-btn").click();
+  await page.locator('[data-lesson="breakthrough"]').click();
+  await page.locator("#tip-overlay .primary").click();
+  await tapMove(page, "b5", "b6");
+  await expect(page.locator("#message")).toContainText("b6!");
+  await page.locator("#ctl-next").click();
+  await tapMove(page, "c5", "c6");
+  await expect(page.locator("#message")).toContainText("Attack b7 with the a-pawn");
+  await page.waitForTimeout(1200); // the wrong move is taken back
+  await tapMove(page, "a5", "a6");
+  await expect(page.locator("#message")).toContainText("a6!");
+  await page.locator("#ctl-next").click();
+  await expect(page.locator("#message")).toContainText("Moves used: 0 of 8");
+  await playOut(page, "w", 8, 10);
+  await expect(page.locator("#message")).toContainText("Promoted!");
+});

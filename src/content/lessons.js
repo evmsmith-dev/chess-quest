@@ -678,11 +678,12 @@ export const UNITS = [
         title: "Pawn breakthrough",
         tip: [
           "When pawns face pawns, a sacrifice can let one of them break through and run to promote.",
-          "With three pawns against three, pushing the middle pawn first is the famous trick.",
+          "With three pawns against three, push the middle pawn first (b6). Then push the pawn next to the one Black's capture left alone: after cxb6 play a6, after axb6 play c6. One pawn always gets through.",
         ],
         tasks: [
           { type: "move", goal: "exact", fen: "8/ppp5/8/PPP5/8/8/8/k6K w - - 0 1", accept: ["b5b6"], text: "The kings are far away. Find the move that breaks through!", success: "b6! Whichever pawn takes, one of yours runs through to promote.", wrong: { a5a6: "After bxa6, Black's other pawns hold. Push the middle pawn first.", c5c6: "After bxc6, Black's other pawns hold. Push the middle pawn first." }, wrongDefault: "The kings are too far away to help. Find the pawn move that breaks through." },
-          { type: "play", goal: "promote", moves: 8, fen: "8/ppp5/8/PPP5/8/8/8/k6K w - - 0 1", text: "Now play it out: break through and promote.", success: "Promoted! The breakthrough worked." },
+          { type: "move", goal: "exact", fen: "8/pp6/1p6/P1P5/8/8/8/k6K w - - 0 2", accept: ["a5a6"], text: "Black took with cxb6. Find the second push that makes a pawn break through.", success: "a6! If bxa6, your c-pawn runs (c6, c7, c8). If Black doesn't take, axb7 and promote on b8.", wrong: { a5b6: "After axb6, Black's pawns hold and nothing gets through. Push the a-pawn instead.", c5b6: "After axb6, Black's pawns hold and nothing gets through. Push the a-pawn instead.", c5c6: "After bxc6 nothing gets through. Attack b7 with the a-pawn instead." }, wrongDefault: "Push a pawn so that whichever way Black takes, another pawn is free." },
+          { type: "play", goal: "promote", moves: 8, fen: "8/ppp5/8/PPP5/8/8/8/k6K w - - 0 1", text: "Now play it out: b6 first, then the second push, then run!", success: "Promoted! The breakthrough worked.", failText: "Try again: b6, then a6 after cxb6 (or c6 after axb6), then run with the free pawn. The king can't help here." },
         ],
       },
     ],
