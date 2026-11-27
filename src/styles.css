@@ -320,14 +320,16 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid 
 
 .game-controls { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-top: auto; }
 .control {
-  flex: 1 1 0; min-width: 72px; min-height: 48px; max-width: 180px;
+  /* Equal widths when they fit; never narrower than their text (large phone font sizes too),
+     so a row that can't fit wraps onto a second line instead of spilling out of the buttons. */
+  flex: 1 1 0; min-width: max-content; min-height: 48px; max-width: 180px;
   border: 0; border-radius: 14px; background: var(--card); box-shadow: var(--shadow);
-  font-weight: 600; font-size: 1rem; padding: 8px 6px; white-space: nowrap;
+  font-weight: 600; font-size: 1rem; padding: 8px 12px; white-space: nowrap;
 }
 .control.is-primary { background: var(--accent); color: var(--accent-text); }
 .control.is-accent { background: var(--accent); color: var(--accent-text); } /* like primary, but stays in place */
 .game-controls.is-quiz { flex-direction: column; align-items: stretch; }
-.game-controls.is-quiz .control { max-width: none; white-space: normal; text-align: left; padding: 10px 14px; flex: none; }
+.game-controls.is-quiz .control { min-width: 0; max-width: none; white-space: normal; text-align: left; padding: 10px 14px; flex: none; }
 .game-controls.is-quiz .control:first-child { align-self: flex-start; }
 .control.is-option { border: 2px solid var(--border); box-shadow: none; }
 .control.is-wrong { background: var(--danger-soft); color: var(--danger); text-decoration: line-through; opacity: 0.8; }
