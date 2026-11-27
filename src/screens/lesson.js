@@ -433,7 +433,7 @@ function playTask(task) {
       } else {
         if (outcome?.reason === "checkmate") { won(`Checkmate in ${used()} moves!`); return; }
         if (outcome) { fail(outcome.reason === "stalemate" ? "Stalemate! The king had no legal move but wasn't in check, so it's a draw. Try again, and leave the king a square until you can give mate." : "The game ended in a draw. Try again!"); return; }
-        if (used() >= task.moves) { fail(task.goal === "promote" ? `That's ${task.moves} moves without promoting. Try again: lead with your king.` : `That's ${task.moves} moves without checkmate. Try again: push the king to the edge first.`); return; }
+        if (used() >= task.moves) { fail(task.failText ? `That's ${task.moves} moves without ${task.goal === "promote" ? "promoting" : "checkmate"}. ${task.failText}` : task.goal === "promote" ? `That's ${task.moves} moves without promoting. Try again: lead with your king.` : `That's ${task.moves} moves without checkmate. Try again: push the king to the edge first.`); return; }
       }
       thinking = true;
       board.setMovable(null);
