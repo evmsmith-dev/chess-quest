@@ -3,7 +3,10 @@ import { expect } from "@playwright/test";
 export const TODAY = "2026-11-22";
 
 /** Opens the app on a fixed date, with optional saved data (keys without the chessQuest_ prefix). */
-export async function openApp(page, { storage = {}, online = true, clock = true, path = "index.html", backend = "local" } = {}) {
+export async function openApp(page, { storage = {}, online = true, clock = true, path = "index.html", backend = "local", askBotStart = false } = {}) {
+  // The one-time "How much chess have you played?" question is answered (skipped) unless a test
+  // is about it.
+  if (!askBotStart) storage = { botStart: "skipped", ...storage };
   // Tests never touch the real Firebase project: they use the local backend, where tabs in one
   // browser play each other ("off" pretends Firebase isn't set up).
   void online;

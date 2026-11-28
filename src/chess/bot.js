@@ -37,7 +37,7 @@ function getWorker() {
   return worker;
 }
 
-function runHere({ type, fen, history = [], level, fens, depth, timeMs }) {
+function runHere({ type, fen, history = [], level, overrides, fens, depth, timeMs }) {
   fallbackSearcher ||= new Searcher();
   if (type === "review") {
     return { scores: fens.map((f) => fallbackSearcher.rootScores(new Position(f), { depth, timeMs }).map((r) => ({ uci: uciString(r.move), score: r.score }))) };
@@ -45,7 +45,7 @@ function runHere({ type, fen, history = [], level, fens, depth, timeMs }) {
   const pos = new Position(fen);
   pos.hashes = history.map((f) => new Position(f).hash);
   if (type === "move") {
-    const m = chooseMove(pos, level, fallbackSearcher);
+    const m = chooseMove(pos, level, fallbackSearcher, Math.random, overrides);
     return { move: m ? uciString(m) : null };
   }
   const r = fallbackSearcher.bestMove(pos, { depth: 5, timeMs: 1000 });
@@ -72,8 +72,8 @@ export async function scorePositions(fens, { depth = 3, timeMs = 220 } = {}, onP
 }
 
 /** The bot's move for `fen` at `level`, as "e2e4" (or null if it has none). */
-export async function botMove(fen, history, level) {
-  return (await ask({ type: "move", fen, history, level })).move;
+export async function botMove(fen, history, level, overrides = {}) {
+  return (await ask({ type: "move", fen, history, level, overrides })).move;
 }
 
 /** A strong move for the side to move, for hints: { move, score }. */

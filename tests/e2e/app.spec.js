@@ -1,9 +1,9 @@
 import { test, expect } from "@playwright/test";
 import { openApp, square, tapMove, dragMove, pieceOn } from "./helpers.js";
 
-async function startGame(page, { level = "beginner", color = "w" } = {}) {
+async function startGame(page, { level = "pip", color = "w" } = {}) {
   await page.locator("#new-game-btn").click();
-  await page.locator(`#level-options [data-level="${level}"]`).click();
+  await page.locator(`#bot-picker [data-bot="${level}"]`).click();
   await page.locator(`#color-options [data-color="${color}"]`).click();
   await page.locator("#start-game-btn").click();
   await expect(page.locator("#play")).toBeVisible();
@@ -92,7 +92,7 @@ test("an unfinished game can be continued from Home", async ({ page }) => {
   await openApp(page, { storage: { current: { level: "intermediate", color: "w", coach: false, undo: false, hints: false, moves: ["e2e4", "e7e5"] } } });
   await expect(page.locator("#continue-btn")).toBeVisible();
   await page.locator("#continue-btn").click();
-  await expect(page.locator("#play-title")).toHaveText("Intermediate bot");
+  await expect(page.locator("#play-title")).toHaveText("🐉 Ember");
   await expect(page.locator("#move-list")).toContainText("e5");
   await expect(page.locator("#ctl-undo")).toHaveCount(0);
 });
@@ -445,7 +445,7 @@ test("game review finds a hung queen and lets you try a better move", async ({ p
   await expect(page.locator("#message")).toContainText("Better:");
   // Back returns to the finished game.
   await page.goBack();
-  await expect(page.locator("#play-title")).toHaveText("Beginner bot");
+  await expect(page.locator("#play-title")).toHaveText("🦦 Sunny");
   await expect(page.locator("#ctl-review")).toBeVisible();
 });
 
@@ -563,7 +563,7 @@ test("Home points new players at Learn, and the three ways to play share one car
 test("returning players see their record, not Start here", async ({ page }) => {
   await openApp(page, { storage: { lessons: { board: { stars: 3 } }, games: { beginner: { w: 2, l: 1, d: 0 } } } });
   await expect(page.locator("#start-here")).toBeHidden();
-  await expect(page.locator("#play-summary")).toContainText("2W 1L 0D");
+  await expect(page.locator("#play-summary")).toContainText("Bot ladder: won against 1 of 6 · next up: 🐢 Shelly");
 });
 
 test("pop-up buttons stay on screen even when the pop-up has to scroll", async ({ page }) => {
@@ -639,4 +639,61 @@ test("the update banner shows on Home only, never over a lesson's buttons", asyn
   await expect(page.locator("#update-banner")).toBeVisible();
   await page.locator("#learn-btn").click();
   await expect(page.locator("#update-banner")).toHaveCount(0);
+});
+
+test("bot ladder: the one-time question picks the first bot, every bot is open, and a win offers the next", async ({ page }) => {
+  await openApp(page, { askBotStart: true });
+  await page.locator("#new-game-btn").click();
+  await expect(page.locator("#botstart-overlay")).toBeVisible();
+  await page.getByRole("button", { name: /I know the rules/ }).click();
+  await expect(page.locator("#newgame-overlay")).toBeVisible();
+  await expect(page.locator('#bot-picker [data-bot="beginner"]')).toHaveAttribute("aria-checked", "true");
+  await expect(page.locator("#bot-about")).toContainText("Sunny the otter");
+  await expect(page.locator("#bot-about")).toContainText("Beginner · 3 of 6");
+  await expect(page.locator("#bot-about")).toContainText("knows the rules but misses tricks");
+  await expect(page.locator("#bot-picker .bot-group-label")).toHaveText(["Beginner", "Intermediate"]);
+  // Any bot can be picked, even the top one.
+  await page.locator('#bot-picker [data-bot="intermediate"]').click();
+  await expect(page.locator('#bot-picker [data-bot="intermediate"]')).toHaveAttribute("aria-checked", "true");
+  await expect(page.locator("#opt-hints")).not.toBeChecked(); // help starts off for the harder bots
+  // The question isn't asked again.
+  await page.locator("#newgame-overlay .overlay-close").click();
+  await page.locator("#new-game-btn").click();
+  await expect(page.locator("#newgame-overlay")).toBeVisible();
+  await page.locator("#newgame-overlay .overlay-close").click();
+  // A game against Pip one move from checkmate.
+  await page.evaluate(() => localStorage.setItem("chessQuest_current", JSON.stringify({ level: "pip", color: "w", coach: false, undo: false, hints: false, moves: ["e2e4", "e7e5", "f1c4", "b8c6", "d1h5", "g8f6"] })));
+  await page.reload();
+  await expect(page.locator("#continue-btn")).toContainText("vs Pip the chick");
+  await page.locator("#continue-btn").click();
+  await expect(page.locator("#play-title")).toHaveText("🐣 Pip");
+  await tapMove(page, "h5", "f7");
+  await expect(page.locator("#result-overlay")).toBeVisible();
+  await expect(page.locator("#result-text")).toContainText("Next up: 🦔 Bramble the hedgehog.");
+  // Badges come one at a time ("Game on" first): close banners until Pip's shows.
+  await expect.poll(async () => {
+    const text = await page.locator("#badge-banner-body").textContent();
+    if (text.includes("Hatched a win")) return true;
+    await page.locator("#badge-banner-close").click();
+    return false;
+  }).toBe(true);
+  await page.locator("#result-primary").click();
+  await expect(page.locator("#play-title")).toHaveText("🦔 Bramble");
+  await expect(page.locator("#message")).toContainText("Bramble: “Ooh, shiny pieces!");
+  await page.goBack();
+  await expect(page.locator("#play-summary")).toContainText("won against 1 of 6 · next up: 🦔 Bramble");
+  await page.locator("#new-game-btn").click();
+  await expect(page.locator('#bot-picker [data-bot="bramble"]')).toHaveAttribute("aria-checked", "true"); // the bot played last
+  await expect(page.locator('#bot-picker [data-bot="bramble"]')).toHaveClass(/is-next/);
+  await expect(page.locator('#bot-picker [data-bot="pip"]')).toHaveAttribute("aria-label", "Pip the chick, Beginner, won");
+  await page.locator('#bot-picker [data-bot="pip"]').click();
+  await expect(page.locator("#bot-about")).toContainText("You: 1 win · 0 losses");
+});
+
+test("with the coach off, bots don't chat", async ({ page }) => {
+  await openApp(page, { storage: { settings: { coach: false } } });
+  await page.locator("#new-game-btn").click();
+  await page.locator("#start-game-btn").click();
+  await expect(page.locator("#message")).toContainText("You play White");
+  await expect(page.locator("#message")).not.toContainText("Peep");
 });

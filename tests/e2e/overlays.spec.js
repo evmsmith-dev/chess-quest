@@ -9,6 +9,10 @@ const OPENERS = {
     await page.locator("#privacy-btn").click();
   },
   "newgame-overlay": async (page) => page.locator("#new-game-btn").click(),
+  "botstart-overlay": async (page) => {
+    await page.evaluate(() => localStorage.removeItem("chessQuest_botStart"));
+    await page.locator("#new-game-btn").click();
+  },
   "friend-overlay": async (page) => page.locator("#friend-btn").click(),
   "online-overlay": async (page) => page.locator("#online-btn").click(),
   "addfriend-overlay": async (page) => {
