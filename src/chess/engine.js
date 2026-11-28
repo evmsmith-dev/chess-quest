@@ -679,7 +679,7 @@ export function chooseMove(pos, level = "beginner", searcher = new Searcher(), r
   const scores = searcher.rootScores(pos, { depth: cfg.depth, timeMs: cfg.timeMs });
   if (!scores.length) return 0;
   // A beginner bot still takes a mate in one most of the time, so lessons about mate threats matter.
-  if (scores[0].score > MATE - 1000 && rand() < 0.75) return scores[0].move;
+  if (scores[0].score > MATE - 1000 && rand() < (cfg.mateChance ?? 0.75)) return scores[0].move;
   if (rand() < cfg.blunder) {
     // An occasional "human" slip: any move that doesn't lose more than a minor piece.
     const ok = scores.filter((s) => s.score > scores[0].score - 350);

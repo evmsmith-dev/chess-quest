@@ -19,6 +19,7 @@ import { miniBoard } from "./screens/boardscreen.js";
 import { newGame, newFriendGame, resumeGame, savedGame, savedFriendGame, setGameHooks, setNewGameOpener } from "./screens/game.js";
 import { startLesson, lessonProgress, nextLesson, setLessonHooks, startBoss, bossProgress } from "./screens/lesson.js";
 import { BOSSES, OPENING_BOSSES } from "./content/bosses.js";
+import { BOTS, BOT_START, botById, botWins, nextUpBot } from "./content/bots.js";
 import { openOnlineGame, savedOnlineGame, setOnlineHooks, friends, saveFriends, toast, friendRecords, forgetFriendRecord } from "./screens/online.js";
 import { getBackend, onlineConfigured } from "./online/backend.js";
 import { isOffline, onConnectionChange, withTimeout } from "./online/connection.js";
@@ -37,7 +38,8 @@ function renderHome() {
   cont.hidden = !saved;
   if (saved) {
     const moves = Math.ceil(saved.moves.length / 2);
-    cont.innerHTML = `<span class="continue-emoji" aria-hidden="true">♟️</span><span class="continue-text"><strong>Continue your game</strong><br>vs ${saved.level === "beginner" ? "Beginner" : "Intermediate"} bot · ${moves ? `move ${moves}` : "just started"}</span><span class="continue-go" aria-hidden="true">➜</span>`;
+    const bot = botById(saved.level) || BOTS[0];
+    cont.innerHTML = `<span class="continue-emoji" aria-hidden="true">${bot.emoji}</span><span class="continue-text"><strong>Continue your game</strong><br>vs ${bot.name} the ${bot.kind} · ${moves ? `move ${moves}` : "just started"}</span><span class="continue-go" aria-hidden="true">➜</span>`;
   }
   const friend = savedFriendGame();
   const contFriend = byId("continue-friend-btn");
@@ -96,8 +98,10 @@ function renderHome() {
 
   // Games.
   const games = readJson("games", {});
-  const parts = ["beginner", "intermediate"].filter((l) => games[l]).map((l) => `${l === "beginner" ? "🐣" : "🦉"} ${games[l].w}W ${games[l].l}L ${games[l].d}D`);
-  byId("play-summary").textContent = parts.length ? `Your record vs the bots: ${parts.join(" · ")}` : "A full game of chess. Who's your opponent?";
+  const won = BOTS.filter((b) => botWins(games, b.id)).length;
+  const nextBot = nextUpBot(games);
+  byId("play-summary").textContent = !Object.keys(games).some(botById) ? `A full game of chess against ${BOTS.length} friendly bots. Who's your opponent?`
+    : `Bot ladder: won against ${won} of ${BOTS.length}${nextBot ? ` · next up: ${nextBot.emoji} ${nextBot.name}` : " 🪜"}`;
 }
 
 // ---------- Learn ----------
@@ -248,24 +252,74 @@ function openRules() {
 
 // ---------- New game ----------
 
-const DEFAULT_GAME = { level: "beginner", color: "w", coach: true, undo: true, hints: true };
+const DEFAULT_GAME = { level: "pip", color: "w", coach: true, undo: true, hints: true };
 let gameChoice = { ...DEFAULT_GAME, ...readJson("gamePrefs", {}) };
 
+// The opponent picker: one row of bot faces, in tier groups (Beginner, Intermediate, …), easiest
+// first. Every bot is open; "Next up" marks the next step on the ladder. If more bots are added the
+// row scrolls sideways, and it opens scrolled to the chosen bot.
 function renderNewGame() {
-  for (const b of document.querySelectorAll("#level-options [data-level]")) b.setAttribute("aria-pressed", String(b.dataset.level === gameChoice.level));
+  const games = readJson("games", {});
+  if (!botById(gameChoice.level)) gameChoice.level = BOTS[0].id;
+  const next = nextUpBot(games);
+  const groups = [...new Set(BOTS.map((b) => b.group))];
+  byId("bot-picker").innerHTML = groups.map((group) => `<div class="bot-group" role="group" aria-label="${group}">
+      <span class="bot-group-label" aria-hidden="true">${group}</span>
+      <div class="bot-group-row">${BOTS.filter((b) => b.group === group).map((b) => {
+        const won = botWins(games, b.id) > 0;
+        const isNext = next?.id === b.id;
+        const label = `${b.name} the ${b.kind}, ${group}${won ? ", won" : ""}${isNext ? ", next up" : ""}`;
+        return `<button type="button" role="radio" class="bot-chip${isNext ? " is-next" : ""}" data-bot="${b.id}" aria-checked="${b.id === gameChoice.level}" aria-label="${label}">
+          <span class="bot-face" aria-hidden="true">${b.emoji}${won ? '<span class="bot-star">⭐</span>' : ""}</span>
+          <span class="bot-name" aria-hidden="true">${b.name}</span>
+          ${isNext ? '<span class="bot-next" aria-hidden="true">Next</span>' : ""}
+        </button>`;
+      }).join("")}</div>
+    </div>`).join("");
+  const bot = botById(gameChoice.level);
+  const index = BOTS.indexOf(bot);
+  const record = games[bot.id];
+  const plural = (n, word) => `${n} ${word}${n === 1 ? "" : word.endsWith("s") ? "es" : "s"}`;
+  byId("bot-about").innerHTML = `<strong>${bot.emoji} ${bot.name} the ${bot.kind}</strong> · ${bot.about}`
+    + `<small>${bot.group} · ${index + 1} of ${BOTS.length}${next?.id === bot.id ? " · Next up on the ladder" : ""}</small>`
+    + `<small>${bot.plays}</small>`
+    + `<small>${record ? `You: ${plural(record.w, "win")} · ${plural(record.l, "loss")}${record.d ? ` · ${plural(record.d, "draw")}` : ""}` : "You haven't played yet."}</small>`;
+  // Keep the chosen bot in view when the row scrolls.
+  byId("bot-picker").querySelector('[aria-checked="true"]')?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
   for (const b of document.querySelectorAll("#color-options [data-color]")) b.setAttribute("aria-pressed", String(b.dataset.color === gameChoice.color));
   byId("opt-coach").checked = gameChoice.coach;
   byId("opt-undo").checked = gameChoice.undo;
   byId("opt-hints").checked = gameChoice.hints;
 }
-byId("level-options").addEventListener("click", (e) => {
-  const level = e.target.closest("[data-level]")?.dataset.level;
-  if (!level) return;
-  // Help is on by default for Beginner and off for Intermediate; the player can change it.
-  const beginner = level === "beginner";
-  gameChoice = { ...gameChoice, level, coach: beginner, undo: beginner, hints: beginner };
+function chooseBot(id) {
+  const bot = botById(id);
+  // Help starts on for the easier bots and off for the harder ones; the player can change it.
+  gameChoice = { ...gameChoice, level: bot.id, coach: bot.helpers, undo: bot.helpers, hints: bot.helpers };
+}
+byId("bot-picker").addEventListener("click", (e) => {
+  const chip = e.target.closest("[data-bot]");
+  if (!chip) return;
+  chooseBot(chip.dataset.bot);
   renderNewGame();
 });
+
+// The one-time question: asked the first time Play the computer opens, unless this player has
+// already played a bot or picked one. It only picks the starting bot.
+byId("botstart-options").innerHTML = BOT_START.map((a) => {
+  const bot = botById(a.bot);
+  return `<button type="button" class="set-card" data-start="${a.id}"><span class="set-emoji" aria-hidden="true">${bot.emoji}</span><span class="set-text"><strong>${a.label}</strong><small>Start with ${bot.name} the ${bot.kind}</small></span></button>`;
+}).join("");
+const needsBotStart = () => !readJson("botStart", null) && !readJson("gamePrefs", null) && !Object.keys(readJson("games", {})).some(botById);
+function answerBotStart(answer) {
+  writeJson("botStart", answer?.id || "skipped");
+  if (answer) chooseBot(answer.bot);
+  closeTopThen(() => openNewGame());
+}
+byId("botstart-options").addEventListener("click", (e) => {
+  const id = e.target.closest("[data-start]")?.dataset.start;
+  if (id) answerBotStart(BOT_START.find((a) => a.id === id));
+});
+byId("botstart-skip").addEventListener("click", () => answerBotStart(null));
 byId("color-options").addEventListener("click", (e) => {
   const color = e.target.closest("[data-color]")?.dataset.color;
   if (color) { gameChoice.color = color; renderNewGame(); }
@@ -280,6 +334,9 @@ byId("start-game-btn").addEventListener("click", () => {
 });
 function openNewGame(kind = "bot") {
   if (kind === "friend") { openFriendGame(); return; }
+  if (needsBotStart()) { openOverlay("botstart-overlay", { focus: "#botstart-options button" }); return; }
+  const last = readJson("gamePrefs", {}).level;
+  if (last && last !== gameChoice.level && botById(last)) chooseBot(last);
   renderNewGame();
   openOverlay("newgame-overlay", { focus: "#start-game-btn" });
 }

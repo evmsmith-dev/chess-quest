@@ -12,12 +12,12 @@ import { buzz } from "../ui/haptics.js";
 import { startReview } from "./review.js";
 import { setting } from "../lib/settings.js";
 import { bump } from "../lib/achievements.js";
+import { BOTS, botById, botAfter } from "../content/bots.js";
 
 const byId = (id) => document.getElementById(id);
-const BOT = {
-  beginner: { name: "Beginner bot", emoji: "🐣" },
-  intermediate: { name: "Intermediate bot", emoji: "🦉" },
-};
+// The bot for a game: from the ladder (src/content/bots.js); games saved before an unknown id
+// fall back to the first bot.
+const BOT = new Proxy({}, { get: (_, id) => botById(id) || BOTS[0] });
 const MIN_THINK_MS = 450;
 
 let g = null; // the game in progress
@@ -33,6 +33,8 @@ export const savedFriendGame = () => readJson("friendGame", null);
 
 /** Starts a new game against the bot: { level, color: "w" | "b" | "random", coach, undo, hints }. */
 export function newGame(options) {
+  // The picker opens on the bot played last (a "Play … next" from the result counts too).
+  writeJson("gamePrefs", { ...readJson("gamePrefs", {}), level: options.level });
   const color = options.color === "random" ? (Math.random() < 0.5 ? "w" : "b") : options.color;
   begin({ ...options, color, moves: [] });
 }
@@ -76,13 +78,14 @@ function begin(saved) {
     setMessage(game.history().length ? turnMessage() : `${label("w")} moves first. Pass the device after each move.`);
     return;
   }
-  setTitle(BOT[g.level].name, g.color === "w" ? "You play White" : "You play Black");
+  setTitle(`${BOT[g.level].emoji} ${BOT[g.level].name}`, g.color === "w" ? "You play White" : "You play Black");
   board.setOrientation(g.color);
   render(false);
   controls();
   save();
   if (game.turn() !== g.color) botTurn();
-  else setMessage(game.history().length ? "Your move." : `You play ${g.color === "w" ? "White: you move first" : "Black"}. ${setting("dragMoves") ? "Tap a piece, or drag it." : "Tap a piece, then tap where it goes."}`);
+  // The bot says hello unless the coach (and its chatter) is switched off in Settings.
+  else setMessage(game.history().length ? "Your move." : `${setting("coach") ? `${BOT[g.level].emoji} ${BOT[g.level].name}: “${BOT[g.level].hello}” ` : ""}You play ${g.color === "w" ? "White: you move first" : "Black"}. ${setting("dragMoves") ? "Tap a piece, or drag it." : "Tap a piece, then tap where it goes."}`);
 }
 
 function leave() {
@@ -212,7 +215,7 @@ function review() {
     onExit: () => {
       if (g !== game) return;
       useMode(mode);
-      setTitle(friend ? "Two players" : BOT[game.level].name, friend ? `${nameOf("w")} vs ${nameOf("b")}` : game.color === "w" ? "You play White" : "You play Black");
+      setTitle(friend ? "Two players" : `${BOT[game.level].emoji} ${BOT[game.level].name}`, friend ? `${nameOf("w")} vs ${nameOf("b")}` : game.color === "w" ? "You play White" : "You play Black");
       render(false);
       setMessage(game.over.result === "draw" ? "The game is a draw." : friend ? `${label(game.over.result)} won.` : game.over.result === game.color ? "You won! 🎉" : "The bot won this time.");
     },
@@ -295,7 +298,8 @@ async function botTurn() {
   const started = Date.now();
   const game = g.game;
   const fens = positionsSinceReset(game);
-  const uci = await botMove(game.fen(), fens, g.level);
+  const { level, ...overrides } = BOT[g.level].engine;
+  const uci = await botMove(game.fen(), fens, level, overrides);
   const wait = MIN_THINK_MS - (Date.now() - started);
   if (wait > 0) await new Promise((r) => setTimeout(r, wait));
   if (!g || token !== g.token) return; // the game changed meanwhile
@@ -338,15 +342,21 @@ function finishIfOver(forced) {
     buzz(won ? "win" : "lose");
     if (won) window.confetti?.({ particleCount: 120, spread: 75, origin: { y: 0.6 }, disableForReducedMotion: true });
     const who = g.color === "w" ? "White" : "Black";
+    const bot = BOT[g.level];
+    const next = won ? botAfter(bot.id) : null;
+    const rematchNow = () => newGame({ ...g, color: g.color === "w" ? "b" : "w" });
     showResult({
       emoji: won ? "🏆" : draw ? "🤝" : "🙂",
-      title: won ? "You win!" : draw ? "Draw" : "The bot wins",
-      text: outcome.reason === "checkmate" ? (won ? `You checkmated the ${BOT[g.level].name}.` : `${who === "White" ? "Black" : "White"} won by checkmate. Every game teaches you something!`) : OUTCOME_TEXT[outcome.reason],
+      title: won ? "You win!" : draw ? "Draw" : `${bot.name} wins this time`,
+      text: (outcome.reason === "checkmate" ? (won ? `You checkmated ${bot.name}.` : `${who === "White" ? "Black" : "White"} won by checkmate. Good game! Want a rematch?`) : OUTCOME_TEXT[outcome.reason])
+        + (next ? ` Next up: ${next.emoji} ${next.name} the ${next.kind}.` : ""),
       stats: [["Moves", Math.ceil(g.game.history().length / 2)], ["Record", `${entry.w}–${entry.l}–${entry.d}`]],
-      secondary: ["🔍 Review game", review],
-      primary: ["Rematch", () => newGame({ ...g, color: g.color === "w" ? "b" : "w" })],
+      // After a win, the next bot up is one tap away (the game can still be reviewed from the
+      // buttons under the board).
+      secondary: next ? ["🔁 Rematch", rematchNow] : ["🔍 Review game", review],
+      primary: next ? [`Play ${next.name} next ➜`, () => newGame({ ...g, level: next.id, coach: next.helpers, undo: next.helpers, hints: next.helpers, color: g.color })] : ["Rematch", rematchNow],
     });
-    setMessage(won ? "You won! 🎉" : draw ? "The game is a draw." : "The bot won this time.");
+    setMessage(won ? "You won! 🎉" : draw ? "The game is a draw." : `${bot.name} won this time.`);
   }, 700);
   return true;
 }

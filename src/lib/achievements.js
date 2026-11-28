@@ -2,6 +2,7 @@
 // already saves (plus a few counters in "milestones"). Everything stays on this device. Badges
 // reward learning, never time spent, and nothing is ever taken away: once earned, a badge is
 // kept, even if a streak later breaks.
+import { BOTS, botById } from "../content/bots.js";
 import { readJson, writeJson } from "../storage.js";
 import { UNITS, ALL_LESSONS } from "../content/lessons.js";
 import { BOSSES } from "../content/bosses.js";
@@ -45,8 +46,8 @@ function snapshot(setSizes) {
     drillBest: Math.max(0, ...Object.values(readJson("drillBest", {}))),
     bosses: readJson("bosses", {}),
     wins: (level) => games[level]?.w || 0,
-    botGames: ["beginner", "intermediate"].reduce((n, l) => n + (games[l] ? games[l].w + games[l].l + games[l].d : 0), 0),
-    botWins: ["beginner", "intermediate"].reduce((n, l) => n + (games[l]?.w || 0), 0),
+    botGames: Object.keys(games).filter(botById).reduce((n, l) => n + games[l].w + games[l].l + games[l].d, 0),
+    botWins: Object.keys(games).filter(botById).reduce((n, l) => n + (games[l].w || 0), 0),
     dailyDays: Object.keys(readJson("daily", {})).length,
     bestStreak: milestones().bestStreak || 0,
     m: milestones(),
@@ -84,15 +85,17 @@ export const BADGES = [
   { id: "boss-flawless", group: "Endgames", emoji: "💎", title: "Flawless", hint: "Earn 3 stars on every endgame boss.", earned: (s) => BOSSES.every((b) => s.bosses[b.id]?.stars === 3) },
   // Play
   { id: "first-game", group: "Play", emoji: "♟️", title: "Game on", hint: "Finish a game against the computer.", earned: (s) => s.botGames >= 1 },
-  { id: "win-beginner", group: "Play", emoji: "🐣", title: "First win", hint: "Beat the Beginner bot.", earned: (s) => s.wins("beginner") >= 1 },
-  { id: "win-intermediate", group: "Play", emoji: "🦉", title: "Giant slayer", hint: "Beat the Intermediate bot.", earned: (s) => s.wins("intermediate") >= 1 },
   { id: "wins-10", group: "Play", emoji: "🔟", title: "Ten wins", hint: "Win 10 games against the computer.", earned: (s) => s.botWins >= 10 },
   { id: "pass-and-play", group: "Play", emoji: "🤝", title: "Good sport", hint: "Finish a two-player game on one device.", earned: (s) => (s.m.friendGames || 0) >= 1 },
   { id: "online-first", group: "Play", emoji: "🌍", title: "Online debut", hint: "Finish an online game.", earned: (s) => (s.m.onlineGames || 0) >= 1 },
   { id: "online-friend", group: "Play", emoji: "💛", title: "Chess buddies", hint: "Play an online game against a saved friend.", earned: (s) => s.friendGamesOnline >= 1 },
+  // Bots: a "first win" badge for each bot on the ladder (from src/content/bots.js), and one for
+  // winning against every "core" bot (bots added later in another tier don't change it).
+  ...BOTS.map((b) => ({ id: b.badge.id, group: "Bots", emoji: b.emoji, title: b.badge.title, hint: `Win a game against ${b.name} the ${b.kind}.`, earned: (s) => s.wins(b.id) >= 1 })),
+  { id: "ladder-climber", group: "Bots", emoji: "🪜", title: "Ladder climber", hint: "Win against every bot on the ladder.", earned: (s) => BOTS.filter((b) => b.tier === "core").every((b) => s.wins(b.id) >= 1) },
   { id: "reviewer", group: "Play", emoji: "🔍", title: "Learning from games", hint: "Look back at a game with Game review.", earned: (s) => (s.m.reviews || 0) >= 1 },
 ];
-export const BADGE_GROUPS = ["Learn", "Puzzles", "Endgames", "Play"];
+export const BADGE_GROUPS = ["Learn", "Puzzles", "Endgames", "Play", "Bots"];
 
 /**
  * Works out which badges are now earned and saves them. Returns the newly earned ones, and

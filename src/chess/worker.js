@@ -1,5 +1,5 @@
 // The bot thinks here, off the main thread, so the board never freezes while it searches.
-// Messages: { id, type: "move", fen, history, level } → { id, move: "e2e4" | null }
+// Messages: { id, type: "move", fen, history, level, overrides } → { id, move: "e2e4" | null }
 //           { id, type: "hint", fen, history } → { id, move, score }
 //           { id, type: "review", fens, depth, timeMs } → { id, progress } while working, then
 //             { id, scores: [[{ uci, score }, …] for each fen] } (every legal move, best first)
@@ -17,7 +17,7 @@ function load(fen, history = []) {
 }
 
 self.addEventListener("message", (event) => {
-  const { id, type, fen, history, level } = event.data;
+  const { id, type, fen, history, level, overrides } = event.data;
   try {
     if (type === "review") {
       const { fens, depth = 3, timeMs = 220 } = event.data;
@@ -31,7 +31,7 @@ self.addEventListener("message", (event) => {
     }
     const pos = load(fen, history);
     if (type === "move") {
-      const m = chooseMove(pos, level, searcher);
+      const m = chooseMove(pos, level, searcher, Math.random, overrides);
       self.postMessage({ id, move: m ? uciString(m) : null });
     } else if (type === "hint") {
       const r = searcher.bestMove(pos, { depth: 6, timeMs: 1200 });
