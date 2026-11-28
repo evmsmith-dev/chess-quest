@@ -34,14 +34,25 @@ async function boardFen(page, turn) {
   return `${rows.join("/")} ${turn} - - 0 1`;
 }
 
-/** Plays the engine's moves for `color` until the task says ✅ (or gives up after `limit`). */
-async function playOut(page, color, limit = 40, depth = 8) {
+/**
+ * Plays the engine's moves for `color` until the task says ✅ (or gives up after `limit`).
+ * `push`: in a race to promote, push a pawn whenever that's about as good as the best move. (When
+ * every move wins, the engine can't tell a pawn push from a king step, and on a busy machine it
+ * sometimes wandered with the king until the move limit ran out.)
+ */
+async function playOut(page, color, limit = 40, depth = 8, { push = false } = {}) {
   const message = page.locator("#message");
   for (let i = 0; i < limit; i++) {
     if ((await message.textContent()).includes("✅")) return;
     const fen = await boardFen(page, color);
-    const best = searcher.bestMove(new Position(fen), { depth, timeMs: 4000 }).move;
-    const uci = uciString(best);
+    let uci;
+    if (push) {
+      const scores = searcher.rootScores(new Position(fen), { depth, timeMs: 4000 }).map((r) => ({ uci: uciString(r.move), score: r.score }));
+      const pawnAt = (sq) => { const placement = fen.split(" ")[0].split("/"); const row = placement[8 - Number(sq[1])]; let file = 0; for (const ch of row) { if (/\d/.test(ch)) file += Number(ch); else { if ("abcdefgh"[file] === sq[0]) return ch === (color === "w" ? "P" : "p"); file++; } } return false; };
+      uci = (scores.find((s) => pawnAt(s.uci.slice(0, 2)) && s.score >= scores[0].score - 100) || scores[0]).uci;
+    } else {
+      uci = uciString(searcher.bestMove(new Position(fen), { depth, timeMs: 4000 }).move);
+    }
     await tapMove(page, uci.slice(0, 2), uci.slice(2, 4));
     if (uci[4]) await page.locator('[data-promo="q"]').click();
     // Wait for the bot's reply (the position changes again) or the end of the task.
@@ -68,7 +79,7 @@ test("square rule: catch the pawn (hold), then race to promote", async ({ page }
   await playOut(page, "b", 10);
   await expect(page.locator("#message")).toContainText("✅");
   await page.locator("#ctl-next").click();
-  await playOut(page, "w", 8);
+  await playOut(page, "w", 8, 8, { push: true });
   await expect(page.locator("#message")).toContainText("Promoted!");
 });
 
@@ -115,7 +126,9 @@ test("boss: King leads the way can be won", async ({ page }) => {
   await page.locator("#challenges-btn").click();
   await page.locator('[data-boss="boss-king-leads"]').click();
   await page.locator("#tip-overlay .primary").click();
-  await playOut(page, "w", 14);
+  // King and pawn needs a deep look: at depth 8 the engine's first move (Ke5) doesn't win, and
+  // only Kc6 does. Depth 16 finds it in well under a second in a position this small.
+  await playOut(page, "w", 14, 16);
   await expect(page.locator("#result-title")).toHaveText("Boss beaten!");
 });
 
